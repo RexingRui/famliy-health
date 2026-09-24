@@ -1,0 +1,80 @@
+openapi: 3.0.3
+info:
+  title: 家庭健康管理 API
+  version: 0.1.0
+  description: |
+    接口契约的唯一事实来源。Go 服务端接口（oapi-codegen）和前端 TS 类型（openapi-typescript）
+    都由本文件生成，修改后执行 `make gen`。
+
+    约定（详见 docs/tech-plan.md「API 设计」）：
+    - 业务接口统一前缀 `/api`，JSON 字段用 camelCase。
+    - 时间用 ISO 8601 带时区偏移（2026-09-24T21:30:00+08:00），纯日期用 2026-09-24。
+    - 记录和附件用 `PUT /{id}` 幂等创建，ID 由前端生成（UUIDv7）。
+    - 列表用游标分页，默认每页 50 条。
+    - 鉴权用 Cookie `sid`；写请求校验 Origin 头。
+    - 错误统一返回 Error 结构。
+servers:
+  - url: /
+security:
+  - cookieAuth: []
+paths:
+  /healthz:
+    get:
+      operationId: healthz
+      summary: 健康检查（数据库、Gotenberg 连通性），供外部拨测使用
+      security: []
+      responses:
+        "200":
+          description: 全部依赖正常
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          description: 至少一个依赖异常
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sid
+  schemas:
+    Health:
+      type: object
+      required: [status, checks]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        checks:
+          type: object
+          description: 各依赖的检查结果，值为 ok 或错误说明
+          additionalProperties:
+            type: string
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: 机器可读的错误码，如 validation_failed、not_found、unauthorized
+              example: validation_failed
+            message:
+              type: string
+              description: 可直接展示给用户的中文说明
+              example: 体温需在 34.0 到 43.0 之间
+            fields:
+              type: object
+              description: 字段级错误，键为字段名
+              additionalProperties:
+                type: string
+              example:
+                temperature: out_of_range

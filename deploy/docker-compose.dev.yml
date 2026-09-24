@@ -1,0 +1,24 @@
+# Local development dependencies only; the app runs on the host via `make dev`.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: healthlog
+      POSTGRES_PASSWORD: healthlog
+      POSTGRES_DB: healthlog
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+
+  gotenberg:
+    build: ./gotenberg
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  pgdata-dev:
