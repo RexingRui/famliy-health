@@ -13,9 +13,10 @@ import (
 )
 
 type Options struct {
-	Server        api.StrictServerInterface
-	Web           fs.FS
-	PublicBaseURL string
+	Server            api.StrictServerInterface
+	StrictMiddlewares []api.StrictMiddlewareFunc
+	Web               fs.FS
+	PublicBaseURL     string
 }
 
 func NewRouter(opts Options) http.Handler {
@@ -25,8 +26,9 @@ func NewRouter(opts Options) http.Handler {
 	r.Use(requestLogger)
 	r.Use(middleware.Recoverer)
 	r.Use(originCheck(opts.PublicBaseURL))
+	r.Use(maxBody)
 
-	strict := api.NewStrictHandlerWithOptions(opts.Server, nil, api.StrictHTTPServerOptions{
+	strict := api.NewStrictHandlerWithOptions(opts.Server, opts.StrictMiddlewares, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  requestErrorHandler,
 		ResponseErrorHandlerFunc: responseErrorHandler,
 	})

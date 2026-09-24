@@ -16,7 +16,7 @@ import (
 
 func newTestRouter(checks map[string]handler.Checker) http.Handler {
 	return NewRouter(Options{
-		Server: handler.New(checks),
+		Server: handler.New(handler.Options{Checks: checks}),
 		Web: fstest.MapFS{
 			"index.html":    {Data: []byte("<html>app</html>")},
 			"assets/app.js": {Data: []byte("console.log(1)")},

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rexingrui/famliy-health/internal/api"
+	"github.com/rexingrui/famliy-health/internal/service"
 )
 
 type Checker interface {
@@ -18,13 +19,22 @@ type CheckerFunc func(ctx context.Context) error
 func (f CheckerFunc) Ping(ctx context.Context) error { return f(ctx) }
 
 type Handler struct {
-	checks map[string]Checker
+	svc          *service.Service
+	checks       map[string]Checker
+	cookieSecure bool
 }
 
 var _ api.StrictServerInterface = (*Handler)(nil)
 
-func New(checks map[string]Checker) *Handler {
-	return &Handler{checks: checks}
+type Options struct {
+	Service *service.Service
+	Checks  map[string]Checker
+	// CookieSecure must be true behind HTTPS; plain-http local dev turns it off.
+	CookieSecure bool
+}
+
+func New(o Options) *Handler {
+	return &Handler{svc: o.Service, checks: o.Checks, cookieSecure: o.CookieSecure}
 }
 
 func (h *Handler) Healthz(ctx context.Context, _ api.HealthzRequestObject) (api.HealthzResponseObject, error) {

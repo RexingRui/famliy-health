@@ -21,6 +21,455 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 用户名密码登录，成功后下发 Cookie sid（30 天，活跃时滑动续期）
+         * @description 同一 IP 连续失败 5 次锁定 15 分钟，锁定期间返回 429。
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 注销当前会话；all=true 注销该账号的全部会话 */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 当前账号和家庭 */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 首页与家庭总览的聚合数据 */
+        get: operations["getHome"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMembers"];
+        put?: never;
+        post: operations["createMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get: operations["getMember"];
+        put?: never;
+        post?: never;
+        /** 删除成员及其全部病程、记录和附件（不可恢复，需带 confirm=true） */
+        delete: operations["deleteMember"];
+        options?: never;
+        head?: never;
+        patch: operations["updateMember"];
+        trace?: never;
+    };
+    "/api/members/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 归档：数据保留，不再出现在快速切换中 */
+        post: operations["archiveMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/{id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["unarchiveMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/{id}/by-disease": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /** 成员主页“按病种”视图：同一病种的全部病程及汇总 */
+        get: operations["getMemberByDisease"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/{id}/calendar": {
+        parameters: {
+            query: {
+                /** @description 年月，如 2026-09 */
+                month: components["parameters"]["Month"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /** 成员一个月内每天各类型的记录数（跨病程） */
+        get: operations["getMemberCalendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/disease-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 病种标签：系统预置 + 本家庭自定义 */
+        get: operations["listDiseaseTags"];
+        put?: never;
+        /** 新增自定义病种；同名已存在时返回已有标签 */
+        post: operations["createDiseaseTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/episodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 病程列表，按最近一条记录时间倒序 */
+        get: operations["listEpisodes"];
+        put?: never;
+        post: operations["createEpisode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/episodes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get: operations["getEpisode"];
+        put?: never;
+        post?: never;
+        /** 删除病程，其中的记录退回待整理 */
+        delete: operations["deleteEpisode"];
+        options?: never;
+        head?: never;
+        /** 编辑病程与切换状态；短期可转长期（进行中→治疗中，已康复→稳定期） */
+        patch: operations["updateEpisode"];
+        trace?: never;
+    };
+    "/api/episodes/{id}/calendar": {
+        parameters: {
+            query: {
+                /** @description 年月，如 2026-09 */
+                month: components["parameters"]["Month"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /** 病程一个月内每天各类型的记录数和最高症状程度 */
+        get: operations["getEpisodeCalendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/episodes/{id}/trend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /** 体温和症状程度的时间序列 */
+        get: operations["getEpisodeTrend"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 统一的记录查询，覆盖时间线、待整理、按类型筛选和搜索；按发生时间倒序 */
+        get: operations["listRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/records/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 批量归入病程；episodeId 为 null 表示移回待整理；可带 newEpisode 同时新建 */
+        post: operations["assignRecords"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/records/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get: operations["getRecord"];
+        /** 创建记录（幂等）。ID 已存在时直接返回已有记录，不做修改 */
+        put: operations["putRecord"];
+        post?: never;
+        /** 删除记录及其附件 */
+        delete: operations["deleteRecord"];
+        options?: never;
+        head?: never;
+        patch: operations["updateRecord"];
+        trace?: never;
+    };
+    "/api/medications/last": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 同一成员同一种药上次的服用时间，用于“上次服用”提示 */
+        get: operations["getLastMedication"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** 上传附件（幂等）。照片和头像须为 JPEG；语音上传后异步转码 */
+        put: operations["uploadAttachment"];
+        post?: never;
+        delete: operations["deleteAttachment"];
+        options?: never;
+        head?: never;
+        /** 修改语音补充文字或顺序 */
+        patch: operations["updateAttachment"];
+        trace?: never;
+    };
+    "/api/attachments/{id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /**
+         * 读取附件文件，支持 Range（语音可拖动）
+         * @description 登录态或打印令牌（token）二选一。语音默认返回转码后的 m4a，未转码完成时返回原始文件。
+         */
+        get: operations["getAttachmentFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/attachments/{id}/reprocess": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 转码失败的语音重新处理 */
+        post: operations["reprocessAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 生成 PDF 报告，同步返回文件 */
+        post: operations["createExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/print-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 打印页取数
+         * @description Gotenberg 渲染时带一次性打印令牌（token）；导出页预览和浏览器打印凭登录态，并用 type/id/from/to/photos 指定范围。
+         */
+        get: operations["getPrintData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -56,9 +505,534 @@ export interface components {
                 };
             };
         };
+        /** @enum {string} */
+        MemberRelation: "self" | "spouse" | "child" | "parent" | "grandparent" | "other";
+        /** @enum {string} */
+        Gender: "male" | "female";
+        /** @enum {string} */
+        BloodType: "A" | "B" | "AB" | "O" | "unknown";
+        /**
+         * @description short 短期病程，long 长期病程
+         * @enum {string}
+         */
+        EpisodeKind: "short" | "long";
+        /**
+         * @description 短期：active 进行中、recovered 已康复；长期：treating 治疗中、stable 稳定期、ended 已结束
+         * @enum {string}
+         */
+        EpisodeStatus: "active" | "recovered" | "treating" | "stable" | "ended";
+        /** @enum {string} */
+        RecordType: "symptom" | "temperature" | "medication" | "visit" | "treatment" | "exam" | "other";
+        /** @enum {string} */
+        MedUnit: "ml" | "片" | "粒" | "袋";
+        /** @enum {string} */
+        AttachmentKind: "photo" | "audio" | "avatar";
+        /**
+         * @description 照片和头像上传后即为 ready；语音为 processing，转码完成后 ready，三次失败为 failed
+         * @enum {string}
+         */
+        AttachmentStatus: "pending" | "processing" | "ready" | "failed";
+        /**
+         * @description episode 病程报告，member 成员健康档案
+         * @enum {string}
+         */
+        ReportType: "episode" | "member";
+        /**
+         * @description none 不附带，thumbnail 附缩略图，appendix 作为附录附原图
+         * @enum {string}
+         */
+        PhotoOption: "none" | "thumbnail" | "appendix";
+        LoginRequest: {
+            username: string;
+            password: string;
+        };
+        Me: {
+            account: components["schemas"]["Account"];
+            family: components["schemas"]["Family"];
+        };
+        Account: {
+            /** Format: uuid */
+            id: string;
+            username: string;
+            displayName: string;
+        };
+        Family: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        Member: {
+            /** Format: uuid */
+            id: string;
+            nickname: string;
+            relation: components["schemas"]["MemberRelation"];
+            gender: components["schemas"]["Gender"];
+            /** Format: date */
+            birthDate: string;
+            /** Format: uuid */
+            avatarId: string | null;
+            avatarUrl: string | null;
+            allergies: string | null;
+            bloodType: components["schemas"]["BloodType"] | null;
+            notes: string | null;
+            sortOrder: number;
+            archived: boolean;
+            /** @description 该成员的长期病程（长期疾病由此汇总显示） */
+            longEpisodes: components["schemas"]["EpisodeRef"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        MemberCreate: {
+            nickname: string;
+            relation: components["schemas"]["MemberRelation"];
+            gender: components["schemas"]["Gender"];
+            /** Format: date */
+            birthDate: string;
+            /** Format: uuid */
+            avatarId?: string;
+            allergies?: string;
+            bloodType?: components["schemas"]["BloodType"];
+            notes?: string;
+        };
+        MemberPatch: {
+            nickname?: string;
+            relation?: components["schemas"]["MemberRelation"];
+            gender?: components["schemas"]["Gender"];
+            /** Format: date */
+            birthDate?: string;
+            /** Format: uuid */
+            avatarId?: string | null;
+            allergies?: string | null;
+            /** @enum {string|null} */
+            bloodType?: "A" | "B" | "AB" | "O" | "unknown" | null;
+            notes?: string | null;
+            sortOrder?: number;
+        };
+        DiseaseTag: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @description 系统预置 */
+            preset: boolean;
+        };
+        DiseaseTagCreate: {
+            name: string;
+        };
+        EpisodeRef: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            diseaseName: string;
+            kind: components["schemas"]["EpisodeKind"];
+            status: components["schemas"]["EpisodeStatus"];
+        };
+        Episode: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            memberId: string;
+            /** Format: uuid */
+            diseaseTagId: string;
+            diseaseName: string;
+            name: string;
+            kind: components["schemas"]["EpisodeKind"];
+            status: components["schemas"]["EpisodeStatus"];
+            /** @description 未结束（进行中、治疗中、稳定期） */
+            open: boolean;
+            /** Format: date */
+            startedOn: string;
+            /** Format: date */
+            endedOn: string | null;
+            /** @description 第几天（未结束）或共持续几天（已结束） */
+            days: number;
+            recordCount: number;
+            /** Format: date-time */
+            lastRecordAt: string | null;
+            /** @description 就诊与治疗费用合计，单位分 */
+            costTotalCents: number;
+            /** @description 短期病程超过 14 天没有新记录，打开时提示“是否已康复” */
+            suggestRecovered: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @description 随记录或批量归入一起新建病程；成员取自记录。diseaseTagId 与 diseaseName 二选一 */
+        NewEpisode: {
+            /** Format: uuid */
+            diseaseTagId?: string;
+            diseaseName?: string;
+            /** @description 为空时按规则生成：短期“病种 · 年-月”，长期“病种” */
+            name?: string;
+            kind: components["schemas"]["EpisodeKind"];
+            /**
+             * Format: date
+             * @description 默认今天
+             */
+            startedOn?: string;
+        };
+        EpisodeCreate: {
+            /** Format: uuid */
+            memberId: string;
+            /** Format: uuid */
+            diseaseTagId?: string;
+            diseaseName?: string;
+            name?: string;
+            kind: components["schemas"]["EpisodeKind"];
+            status?: components["schemas"]["EpisodeStatus"];
+            /** Format: date */
+            startedOn?: string;
+            /** Format: date */
+            endedOn?: string;
+        };
+        EpisodePatch: {
+            name?: string;
+            /** Format: uuid */
+            diseaseTagId?: string;
+            diseaseName?: string;
+            kind?: components["schemas"]["EpisodeKind"];
+            status?: components["schemas"]["EpisodeStatus"];
+            /** Format: date */
+            startedOn?: string;
+            /** Format: date */
+            endedOn?: string | null;
+        };
+        /** @description 就诊：hospital、department、doctor；治疗：item、institution；检查：item */
+        RecordDetails: {
+            hospital?: string;
+            department?: string;
+            doctor?: string;
+            item?: string;
+            institution?: string;
+        };
+        Record: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            memberId: string;
+            /** Format: uuid */
+            episodeId: string | null;
+            type: components["schemas"]["RecordType"] | null;
+            /**
+             * Format: date-time
+             * @description 发生时间
+             */
+            occurredAt: string;
+            /**
+             * Format: date-time
+             * @description 录入时间
+             */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description 发生与录入相差超过 1 小时，显示“补录” */
+            backfilled: boolean;
+            body: string;
+            isFlare: boolean;
+            severity: number | null;
+            /** Format: double */
+            temperature: number | null;
+            medName: string | null;
+            /** Format: double */
+            medDose: number | null;
+            medUnit: components["schemas"]["MedUnit"] | null;
+            costCents: number | null;
+            details: components["schemas"]["RecordDetails"];
+            attachments: components["schemas"]["Attachment"][];
+        };
+        RecordCreate: {
+            /** Format: uuid */
+            memberId: string;
+            /**
+             * Format: uuid
+             * @description 与 newEpisode 二选一，都不传即进入待整理
+             */
+            episodeId?: string;
+            newEpisode?: components["schemas"]["NewEpisode"];
+            type?: components["schemas"]["RecordType"];
+            /** Format: date-time */
+            occurredAt: string;
+            body?: string;
+            /** @description 仅长期病程中的记录可用 */
+            isFlare?: boolean;
+            /** @description 仅症状 */
+            severity?: number;
+            /**
+             * Format: double
+             * @description 仅体温，°C，保留一位小数
+             */
+            temperature?: number;
+            /** @description 仅用药 */
+            medName?: string;
+            /**
+             * Format: double
+             * @description 仅用药
+             */
+            medDose?: number;
+            medUnit?: components["schemas"]["MedUnit"];
+            /** @description 仅就诊、治疗，单位分 */
+            costCents?: number;
+            details?: components["schemas"]["RecordDetails"];
+        };
+        /** @description 修改类型时，旧类型专属且未在本次请求中出现的字段会被清空 */
+        RecordPatch: {
+            /** Format: uuid */
+            memberId?: string;
+            /** Format: uuid */
+            episodeId?: string | null;
+            /** @enum {string|null} */
+            type?: "symptom" | "temperature" | "medication" | "visit" | "treatment" | "exam" | "other" | null;
+            /** Format: date-time */
+            occurredAt?: string;
+            body?: string;
+            isFlare?: boolean;
+            severity?: number | null;
+            /** Format: double */
+            temperature?: number | null;
+            medName?: string | null;
+            /** Format: double */
+            medDose?: number | null;
+            /** @enum {string|null} */
+            medUnit?: "ml" | "片" | "粒" | "袋" | null;
+            costCents?: number | null;
+            details?: components["schemas"]["RecordDetails"];
+        };
+        RecordPage: {
+            items: components["schemas"]["Record"][];
+            nextCursor: string | null;
+        };
+        AssignRequest: {
+            ids: string[];
+            /**
+             * Format: uuid
+             * @description null 表示移回待整理（带 newEpisode 时忽略）
+             */
+            episodeId: string | null;
+            newEpisode?: components["schemas"]["NewEpisode"];
+        };
+        AssignResult: {
+            /** Format: uuid */
+            episodeId: string | null;
+            updated: number;
+        };
+        LastMedication: {
+            last: components["schemas"]["MedicationDose"] | null;
+        };
+        MedicationDose: {
+            /** Format: uuid */
+            recordId: string;
+            medName: string;
+            /** Format: double */
+            medDose: number | null;
+            medUnit: components["schemas"]["MedUnit"] | null;
+            /** Format: date-time */
+            occurredAt: string;
+            /**
+             * Format: double
+             * @description 距现在的小时数，保留一位小数
+             */
+            hoursSince: number;
+        };
+        Attachment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            recordId: string | null;
+            kind: components["schemas"]["AttachmentKind"];
+            status: components["schemas"]["AttachmentStatus"];
+            mime: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            durationMs: number | null;
+            width: number | null;
+            height: number | null;
+            /** @description 语音的补充文字 */
+            caption: string | null;
+            sortOrder: number;
+            url: string;
+            thumbUrl: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AttachmentUpload: {
+            kind: components["schemas"]["AttachmentKind"];
+            /**
+             * Format: uuid
+             * @description 照片和语音必填，头像不填
+             */
+            recordId?: string;
+            /** @description 前端测得的语音时长，转码后以 ffprobe 为准 */
+            durationMs?: number;
+            caption?: string;
+            sortOrder?: number;
+            /**
+             * Format: binary
+             * @description 照片 image/jpeg ≤10MB；语音 audio/mp4、audio/webm、audio/ogg ≤20MB；头像 image/jpeg ≤2MB
+             */
+            file: string;
+        };
+        AttachmentPatch: {
+            caption?: string | null;
+            sortOrder?: number;
+        };
+        TypeCounts: {
+            symptom: number;
+            temperature: number;
+            medication: number;
+            visit: number;
+            treatment: number;
+            exam: number;
+            other: number;
+            /** @description 未选类型的记录 */
+            untyped: number;
+        };
+        CalendarDay: {
+            /** Format: date */
+            date: string;
+            counts: components["schemas"]["TypeCounts"];
+            /** @description 当天最高症状程度 */
+            maxSeverity: number | null;
+            /** @description 当天有发作记录 */
+            flare: boolean;
+        };
+        Calendar: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** @description 只包含有记录的日子，按日期升序 */
+            days: components["schemas"]["CalendarDay"][];
+        };
+        TrendPoint: {
+            /** Format: uuid */
+            recordId: string;
+            /** Format: date-time */
+            occurredAt: string;
+            /** Format: double */
+            value: number;
+        };
+        Trend: {
+            temperature: components["schemas"]["TrendPoint"][];
+            severity: components["schemas"]["TrendPoint"][];
+        };
+        EpisodeSummary: {
+            episode: components["schemas"]["Episode"];
+            latestTemperature: components["schemas"]["TemperatureReading"] | null;
+            lastMedication: components["schemas"]["MedicationDose"] | null;
+            /** @description 本周（周一到周日）有记录的日子 */
+            week: components["schemas"]["CalendarDay"][];
+        };
+        TemperatureReading: {
+            /** Format: uuid */
+            recordId: string;
+            /** Format: double */
+            value: number;
+            /** Format: date-time */
+            occurredAt: string;
+        };
+        HomeMember: {
+            member: components["schemas"]["Member"];
+            /** @description 未结束的病程，按最近一条记录时间倒序 */
+            openEpisodes: components["schemas"]["EpisodeSummary"][];
+            /** @description 最近 4 条记录 */
+            recentRecords: components["schemas"]["Record"][];
+            episodeCountLastYear: number;
+        };
+        Home: {
+            /** @description 未归档的成员，按 sortOrder */
+            members: components["schemas"]["HomeMember"][];
+            inboxCount: number;
+        };
+        DiseaseEpisode: {
+            episode: components["schemas"]["Episode"];
+            /** Format: double */
+            maxTemperature: number | null;
+            medications: string[];
+            visitCount: number;
+        };
+        DiseaseSummary: {
+            /** Format: uuid */
+            diseaseTagId: string;
+            diseaseName: string;
+            episodeCount: number;
+            /**
+             * Format: double
+             * @description 已结束病程的平均持续天数，保留一位小数
+             */
+            recoveredAvgDays: number | null;
+            maxDays: number | null;
+            topMedications: components["schemas"]["MedicationCount"][];
+            /** @description 按开始日期倒序 */
+            episodes: components["schemas"]["DiseaseEpisode"][];
+        };
+        MedicationCount: {
+            name: string;
+            /** @description 用过这种药的病程数 */
+            count: number;
+        };
+        ByDisease: {
+            /** @enum {string} */
+            range: "1y" | "3y" | "all";
+            /** @description 按病程数倒序 */
+            diseases: components["schemas"]["DiseaseSummary"][];
+        };
+        ExportRequest: {
+            type: components["schemas"]["ReportType"];
+            /**
+             * Format: uuid
+             * @description 病程报告必填
+             */
+            episodeId?: string;
+            /**
+             * Format: uuid
+             * @description 成员健康档案必填
+             */
+            memberId?: string;
+            /** Format: date */
+            from?: string;
+            /** Format: date */
+            to?: string;
+            photos: components["schemas"]["PhotoOption"];
+        };
+        PrintData: {
+            type: components["schemas"]["ReportType"];
+            /** Format: date-time */
+            generatedAt: string;
+            /** Format: date */
+            from: string | null;
+            /** Format: date */
+            to: string | null;
+            photos: components["schemas"]["PhotoOption"];
+            member: components["schemas"]["Member"];
+            /** @description 病程报告的病程 */
+            episode: components["schemas"]["Episode"] | null;
+            /** @description 成员健康档案中时间段内的病程（每个一行摘要） */
+            episodes: components["schemas"]["Episode"][];
+            /** @description 病程报告中时间段内的全部记录，按发生时间升序 */
+            records: components["schemas"]["Record"][];
+            costTotalCents: number;
+            /** @description 取数用的打印令牌，打印页取附件文件时附在 URL 上 */
+            token: string | null;
+        };
     };
-    responses: never;
-    parameters: never;
+    responses: {
+        /** @description 错误（400/401/403/404/409/413/422/429/500） */
+        Error: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+    };
+    parameters: {
+        Id: string;
+        /** @description 年月，如 2026-09 */
+        Month: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -92,6 +1066,932 @@ export interface operations {
                     "application/json": components["schemas"]["Health"];
                 };
             };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description 登录成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: {
+                all?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已注销 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getHome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Home"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMembers: {
+        parameters: {
+            query?: {
+                includeArchived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 按 sortOrder 排序 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteMember: {
+        parameters: {
+            query: {
+                confirm: boolean;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unarchiveMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMemberByDisease: {
+        parameters: {
+            query?: {
+                range?: "1y" | "3y" | "all";
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ByDisease"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMemberCalendar: {
+        parameters: {
+            query: {
+                /** @description 年月，如 2026-09 */
+                month: components["parameters"]["Month"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Calendar"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listDiseaseTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiseaseTag"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createDiseaseTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiseaseTagCreate"];
+            };
+        };
+        responses: {
+            /** @description 已存在 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiseaseTag"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiseaseTag"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listEpisodes: {
+        parameters: {
+            query?: {
+                memberId?: string;
+                /** @description true 只返回未结束的（进行中、治疗中、稳定期） */
+                open?: boolean;
+                diseaseTagId?: string;
+                kind?: components["schemas"]["EpisodeKind"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Episode"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createEpisode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EpisodeCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Episode"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getEpisode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Episode"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteEpisode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateEpisode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EpisodePatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Episode"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getEpisodeCalendar: {
+        parameters: {
+            query: {
+                /** @description 年月，如 2026-09 */
+                month: components["parameters"]["Month"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Calendar"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getEpisodeTrend: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trend"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listRecords: {
+        parameters: {
+            query?: {
+                memberId?: string;
+                episodeId?: string;
+                /** @description true 只返回未归入病程的记录 */
+                inbox?: boolean;
+                /** @description 可多选，如 type=visit&type=medication */
+                type?: components["schemas"]["RecordType"][];
+                /** @description true 只返回发作记录 */
+                flare?: boolean;
+                from?: string;
+                to?: string;
+                /** @description 搜索文字内容、语音补充文字、药名、医院名称 */
+                q?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordPage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    assignRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Record"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordCreate"];
+            };
+        };
+        responses: {
+            /** @description 已存在 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Record"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Record"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Record"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getLastMedication: {
+        parameters: {
+            query: {
+                memberId: string;
+                medName: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LastMedication"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    uploadAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["AttachmentUpload"];
+            };
+        };
+        responses: {
+            /** @description 已存在 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachmentPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAttachmentFile: {
+        parameters: {
+            query?: {
+                variant?: "default" | "thumb" | "original";
+                /** @description 打印令牌，供 Gotenberg 渲染报告时取图 */
+                token?: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 文件内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description 部分内容（Range） */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    reprocessAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description PDF 文件 */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPrintData: {
+        parameters: {
+            query?: {
+                token?: string;
+                type?: components["schemas"]["ReportType"];
+                /** @description 病程报告为病程 ID，成员健康档案为成员 ID */
+                id?: string;
+                from?: string;
+                to?: string;
+                photos?: components["schemas"]["PhotoOption"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrintData"];
+                };
+            };
+            default: components["responses"]["Error"];
         };
     };
 }
