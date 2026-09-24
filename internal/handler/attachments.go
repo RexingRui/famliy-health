@@ -24,9 +24,9 @@ func (h *Handler) UploadAttachment(ctx context.Context, req api.UploadAttachment
 		return nil, err
 	}
 	if created {
-		return api.UploadAttachment201JSONResponse(toAttachment(a)), nil
+		return api.UploadAttachment201JSONResponse(h.toAttachment(a)), nil
 	}
-	return api.UploadAttachment200JSONResponse(toAttachment(a)), nil
+	return api.UploadAttachment200JSONResponse(h.toAttachment(a)), nil
 }
 
 func (h *Handler) UpdateAttachment(ctx context.Context, req api.UpdateAttachmentRequestObject) (api.UpdateAttachmentResponseObject, error) {
@@ -41,7 +41,7 @@ func (h *Handler) UpdateAttachment(ctx context.Context, req api.UpdateAttachment
 	if err != nil {
 		return nil, err
 	}
-	return api.UpdateAttachment200JSONResponse(toAttachment(a)), nil
+	return api.UpdateAttachment200JSONResponse(h.toAttachment(a)), nil
 }
 
 func (h *Handler) DeleteAttachment(ctx context.Context, req api.DeleteAttachmentRequestObject) (api.DeleteAttachmentResponseObject, error) {
@@ -64,7 +64,7 @@ func (h *Handler) ReprocessAttachment(ctx context.Context, req api.ReprocessAtta
 	if err != nil {
 		return nil, err
 	}
-	return api.ReprocessAttachment200JSONResponse(toAttachment(a)), nil
+	return api.ReprocessAttachment200JSONResponse(h.toAttachment(a)), nil
 }
 
 // fileResponse streams through http.ServeContent so Range requests (audio seeking) work.

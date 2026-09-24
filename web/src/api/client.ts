@@ -16,13 +16,24 @@ export class ApiError extends Error {
   }
 }
 
+/** Deployment prefix without trailing slash: "" in dev, "/health" in production. */
+export const basePath = import.meta.env.BASE_URL.replace(/\/+$/, '')
+
+/**
+ * Prefixes an app-relative API path ("/api/me"). URLs returned by the API (attachment and
+ * avatar URLs) already include the prefix and must be used as-is.
+ */
+export function apiUrl(path: string): string {
+  return basePath + path
+}
+
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
   if (init.body !== undefined && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
 
-  const res = await fetch(path, { credentials: 'same-origin', ...init, headers })
+  const res = await fetch(apiUrl(path), { credentials: 'same-origin', ...init, headers })
 
   if (!res.ok) {
     let body: ErrorBody | undefined

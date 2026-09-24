@@ -16,7 +16,7 @@ func (h *Handler) GetHome(ctx context.Context, _ api.GetHomeRequestObject) (api.
 	if err != nil {
 		return nil, err
 	}
-	return api.GetHome200JSONResponse(toHome(home)), nil
+	return api.GetHome200JSONResponse(h.toHome(home)), nil
 }
 
 func (h *Handler) ListMembers(ctx context.Context, req api.ListMembersRequestObject) (api.ListMembersResponseObject, error) {
@@ -28,7 +28,7 @@ func (h *Handler) ListMembers(ctx context.Context, req api.ListMembersRequestObj
 	if err != nil {
 		return nil, err
 	}
-	return api.ListMembers200JSONResponse(toMembers(ms)), nil
+	return api.ListMembers200JSONResponse(h.toMembers(ms)), nil
 }
 
 func (h *Handler) CreateMember(ctx context.Context, req api.CreateMemberRequestObject) (api.CreateMemberResponseObject, error) {
@@ -43,7 +43,7 @@ func (h *Handler) CreateMember(ctx context.Context, req api.CreateMemberRequestO
 	if err != nil {
 		return nil, err
 	}
-	return api.CreateMember201JSONResponse(toMember(m)), nil
+	return api.CreateMember201JSONResponse(h.toMember(m)), nil
 }
 
 func (h *Handler) GetMember(ctx context.Context, req api.GetMemberRequestObject) (api.GetMemberResponseObject, error) {
@@ -55,7 +55,7 @@ func (h *Handler) GetMember(ctx context.Context, req api.GetMemberRequestObject)
 	if err != nil {
 		return nil, err
 	}
-	return api.GetMember200JSONResponse(toMember(m)), nil
+	return api.GetMember200JSONResponse(h.toMember(m)), nil
 }
 
 func (h *Handler) UpdateMember(ctx context.Context, req api.UpdateMemberRequestObject) (api.UpdateMemberResponseObject, error) {
@@ -70,7 +70,7 @@ func (h *Handler) UpdateMember(ctx context.Context, req api.UpdateMemberRequestO
 	if err != nil {
 		return nil, err
 	}
-	return api.UpdateMember200JSONResponse(toMember(m)), nil
+	return api.UpdateMember200JSONResponse(h.toMember(m)), nil
 }
 
 func (h *Handler) DeleteMember(ctx context.Context, req api.DeleteMemberRequestObject) (api.DeleteMemberResponseObject, error) {
@@ -93,7 +93,7 @@ func (h *Handler) ArchiveMember(ctx context.Context, req api.ArchiveMemberReques
 	if err != nil {
 		return nil, err
 	}
-	return api.ArchiveMember200JSONResponse(toMember(m)), nil
+	return api.ArchiveMember200JSONResponse(h.toMember(m)), nil
 }
 
 func (h *Handler) UnarchiveMember(ctx context.Context, req api.UnarchiveMemberRequestObject) (api.UnarchiveMemberResponseObject, error) {
@@ -105,7 +105,7 @@ func (h *Handler) UnarchiveMember(ctx context.Context, req api.UnarchiveMemberRe
 	if err != nil {
 		return nil, err
 	}
-	return api.UnarchiveMember200JSONResponse(toMember(m)), nil
+	return api.UnarchiveMember200JSONResponse(h.toMember(m)), nil
 }
 
 func (h *Handler) GetMemberByDisease(ctx context.Context, req api.GetMemberByDiseaseRequestObject) (api.GetMemberByDiseaseResponseObject, error) {

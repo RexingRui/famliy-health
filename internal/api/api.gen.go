@@ -1105,7 +1105,7 @@ type ServerInterface interface {
 	// ReprocessAttachment 转码失败的语音重新处理
 	// (POST /api/attachments/{id}/reprocess)
 	ReprocessAttachment(w http.ResponseWriter, r *http.Request, id Id)
-	// Login 用户名密码登录，成功后下发 Cookie sid（30 天，活跃时滑动续期）
+	// Login 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
 	// (POST /api/auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
 	// Logout 注销当前会话；all=true 注销该账号的全部会话
@@ -1236,7 +1236,7 @@ func (_ Unimplemented) ReprocessAttachment(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Login 用户名密码登录，成功后下发 Cookie sid（30 天，活跃时滑动续期）
+// Login 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
 // (POST /api/auth/login)
 func (_ Unimplemented) Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -4415,7 +4415,7 @@ type StrictServerInterface interface {
 	// ReprocessAttachment 转码失败的语音重新处理
 	// (POST /api/attachments/{id}/reprocess)
 	ReprocessAttachment(ctx context.Context, request ReprocessAttachmentRequestObject) (ReprocessAttachmentResponseObject, error)
-	// Login 用户名密码登录，成功后下发 Cookie sid（30 天，活跃时滑动续期）
+	// Login 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
 	// (POST /api/auth/login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
 	// Logout 注销当前会话；all=true 注销该账号的全部会话

@@ -57,7 +57,7 @@ func (h *Handler) setCookie(w http.ResponseWriter, token string, expires time.Ti
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    token,
-		Path:     "/",
+		Path:     h.cookiePath(),
 		Expires:  expires,
 		MaxAge:   int(time.Until(expires).Seconds()),
 		HttpOnly: true,
@@ -68,7 +68,7 @@ func (h *Handler) setCookie(w http.ResponseWriter, token string, expires time.Ti
 
 func (h *Handler) clearCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
-		Name: auth.CookieName, Value: "", Path: "/", MaxAge: -1,
+		Name: auth.CookieName, Value: "", Path: h.cookiePath(), MaxAge: -1,
 		HttpOnly: true, Secure: h.cookieSecure, SameSite: http.SameSiteLaxMode,
 	})
 }

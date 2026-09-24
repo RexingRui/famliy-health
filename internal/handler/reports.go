@@ -59,7 +59,7 @@ func (h *Handler) GetPrintData(ctx context.Context, req api.GetPrintDataRequestO
 		if err != nil {
 			return nil, err
 		}
-		return api.GetPrintData200JSONResponse(toPrintData(d)), nil
+		return api.GetPrintData200JSONResponse(h.toPrintData(d)), nil
 	}
 	p, err := principal(ctx)
 	if err != nil {
@@ -78,7 +78,7 @@ func (h *Handler) GetPrintData(ctx context.Context, req api.GetPrintDataRequestO
 	if err != nil {
 		return nil, err
 	}
-	return api.GetPrintData200JSONResponse(toPrintData(d)), nil
+	return api.GetPrintData200JSONResponse(h.toPrintData(d)), nil
 }
 
 func derefUUID(id *uuid.UUID) uuid.UUID {

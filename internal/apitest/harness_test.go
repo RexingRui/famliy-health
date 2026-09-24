@@ -43,12 +43,16 @@ type env struct {
 	st     *store.Store
 	runner *jobs.Runner
 	files  *storage.Local
+	base   string
 
 	mu        sync.Mutex
 	printURLs []string
 }
 
-func newEnv(t *testing.T) *env {
+func newEnv(t *testing.T) *env { return newEnvAt(t, "") }
+
+// newEnvAt serves the app under base, as in production where it shares crab's domain.
+func newEnvAt(t *testing.T, base string) *env {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
@@ -83,7 +87,7 @@ func newEnv(t *testing.T) *env {
 		t.Fatal(err)
 	}
 
-	e := &env{t: t, st: store.New(pool)}
+	e := &env{t: t, st: store.New(pool), base: base}
 	e.files, err = storage.NewLocal(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -106,15 +110,16 @@ func newEnv(t *testing.T) *env {
 	}
 	e.svc.SetReports(service.Reports{
 		Signer: signer, Gotenberg: &report.Gotenberg{BaseURL: gotenberg.URL, Client: gotenberg.Client()},
-		PrintBaseURL: "http://app.internal:8080",
+		PrintBaseURL: "http://app.internal:8080" + base,
 	})
 
-	h := handler.New(handler.Options{Service: e.svc, CookieSecure: false, Checks: map[string]handler.Checker{"database": pool}})
+	h := handler.New(handler.Options{Service: e.svc, CookieSecure: false, BasePath: base, Checks: map[string]handler.Checker{"database": pool}})
 	e.srv = httptest.NewServer(httpx.NewRouter(httpx.Options{
 		Server:            h,
 		StrictMiddlewares: []api.StrictMiddlewareFunc{h.AuthMiddleware},
 		Web:               fstest.MapFS{"index.html": {Data: []byte("<html></html>")}},
 		PublicBaseURL:     "http://public.example",
+		BasePath:          base,
 	}))
 	t.Cleanup(e.srv.Close)
 	return e
@@ -183,6 +188,10 @@ func (r response) errorFields() (string, map[string]string) {
 
 func (c *client) raw(method, path string, body io.Reader, contentType string, header map[string]string) response {
 	c.e.t.Helper()
+	// Paths are app-relative unless they already carry the base (URLs returned by the API).
+	if c.e.base != "" && !strings.HasPrefix(path, c.e.base+"/") {
+		path = c.e.base + path
+	}
 	req, err := http.NewRequest(method, c.e.srv.URL+path, body)
 	if err != nil {
 		c.e.t.Fatal(err)

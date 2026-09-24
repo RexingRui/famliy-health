@@ -5,8 +5,9 @@
 #   docker compose up -d --build
 #
 # There is deliberately no Caddy here: crab's Caddy container already owns ports 80/443, and a
-# second one would make HTTPS handshakes fail at random. The app joins crab's network and
-# deploy/caddy/healthlog.caddy is imported by crab's Caddy.
+# second one would make HTTPS handshakes fail at random. healthlog is served under a path on
+# crab's domain (https://<PUBLIC_DOMAIN>/health/): the app joins crab's network and the route
+# snippet deploy/caddy/healthlog.caddy is imported into crab's site block.
 name: healthlog
 
 x-logging: &logging
@@ -24,6 +25,8 @@ services:
         GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
         NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
         ALPINE_MIRROR: ${ALPINE_MIRROR-https://mirrors.tencent.com}
+        # Baked into the frontend build (asset URLs, router basename); must match BASE_PATH below.
+        BASE_PATH: ${BASE_PATH:-/health}
     image: healthlog:latest
     container_name: healthlog-app
     restart: unless-stopped
@@ -35,7 +38,8 @@ services:
       GOTENBERG_URL: http://gotenberg:3000
       # Gotenberg opens the print page over the compose network, not through the public domain.
       PRINT_BASE_URL: http://app:8080
-      PUBLIC_BASE_URL: https://${HEALTH_DOMAIN:?set HEALTH_DOMAIN in .env}
+      BASE_PATH: ${BASE_PATH:-/health}
+      PUBLIC_BASE_URL: https://${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN (crab's domain) in .env}${BASE_PATH:-/health}
       TZ: Asia/Shanghai
     volumes:
       - ./data/storage:/data/storage

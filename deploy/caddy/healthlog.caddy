@@ -1,21 +1,22 @@
-# Site block imported by crab's Caddy (crab-caddy). scripts/deploy.sh renders it with the real
-# domain into CADDY_SITES_DIR and reloads Caddy. The global `protocols h1 h2` in crab's
-# Caddyfile applies here too: do not advertise HTTP/3 (Safari fails when UDP 443 is blocked).
-__HEALTH_DOMAIN__ {
-	encode zstd gzip
+# Route snippet imported INSIDE crab's site block ({$CRAB_DOMAIN} { ... }), so healthlog lives
+# at https://<crab domain>__BASE_PATH__/ on the same certificate. scripts/deploy.sh renders
+# __BASE_PATH__ and reloads crab's Caddy. crab already owns /api/*, /t* and /r* on this domain;
+# crab's global `protocols h1 h2` applies here too (no HTTP/3, Safari fails when UDP 443 is blocked).
 
+redir __BASE_PATH__ __BASE_PATH__/ 308
+
+handle __BASE_PATH__/* {
 	# Photos are ≤10 MB and audio ≤20 MB after client-side compression.
 	request_body {
 		max_size 50MB
 	}
 
 	header {
-		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options nosniff
 		Referrer-Policy same-origin
 		X-Robots-Tag noindex
 	}
 
-	# /healthz stays public on purpose so an external uptime monitor can probe it.
+	# The app itself is mounted under the prefix (BASE_PATH), so the path is passed unchanged.
 	reverse_proxy healthlog-app:8080
 }

@@ -6,6 +6,9 @@
 
 FROM node:22-alpine AS web
 ARG NPM_REGISTRY=https://registry.npmmirror.com
+# Path prefix the app is served under (e.g. /health); empty serves from the root.
+ARG BASE_PATH=
+ENV VITE_BASE_PATH=${BASE_PATH}
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --registry="$NPM_REGISTRY" --no-audit --no-fund
@@ -39,6 +42,6 @@ USER app
 EXPOSE 8080
 # 503 when PostgreSQL or Gotenberg is unreachable, so `docker compose ps` surfaces it.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD wget -qO- http://127.0.0.1:8080/healthz >/dev/null 2>&1 || exit 1
+    CMD wget -qO- "http://127.0.0.1:8080${BASE_PATH}/healthz" >/dev/null 2>&1 || exit 1
 ENTRYPOINT ["healthlog"]
 CMD ["serve"]

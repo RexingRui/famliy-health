@@ -15,8 +15,13 @@ import (
 )
 
 func newTestRouter(checks map[string]handler.Checker) http.Handler {
+	return newTestRouterAt("", checks)
+}
+
+func newTestRouterAt(base string, checks map[string]handler.Checker) http.Handler {
 	return NewRouter(Options{
-		Server: handler.New(handler.Options{Checks: checks}),
+		BasePath: base,
+		Server:   handler.New(handler.Options{Checks: checks}),
 		Web: fstest.MapFS{
 			"index.html":    {Data: []byte("<html>app</html>")},
 			"assets/app.js": {Data: []byte("console.log(1)")},
@@ -100,5 +105,33 @@ func TestHealthz(t *testing.T) {
 	}
 	if rec.Code != http.StatusServiceUnavailable || body.Status != api.HealthStatusDegraded || body.Checks["gotenberg"] != "down" {
 		t.Fatalf("degraded: status = %d body = %+v", rec.Code, body)
+	}
+}
+
+func TestBasePath(t *testing.T) {
+	ok := handler.CheckerFunc(func(context.Context) error { return nil })
+	h := newTestRouterAt("/health", map[string]handler.Checker{"database": ok})
+
+	if rec := do(h, http.MethodGet, "/health/healthz", nil); rec.Code != http.StatusOK {
+		t.Fatalf("healthz under base: %d", rec.Code)
+	}
+	if rec := do(h, http.MethodGet, "/healthz", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("healthz outside base: %d", rec.Code)
+	}
+	rec := do(h, http.MethodGet, "/health?x=1", nil)
+	if rec.Code != http.StatusPermanentRedirect || rec.Header().Get("Location") != "/health/?x=1" {
+		t.Fatalf("bare prefix: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if rec := do(h, http.MethodGet, "/healthy/episodes/1", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("lookalike prefix served: %d", rec.Code)
+	}
+	if rec := do(h, http.MethodGet, "/health/episodes/1", nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "app") {
+		t.Fatalf("SPA route under base: %d", rec.Code)
+	}
+	if rec := do(h, http.MethodGet, "/health/api/nope", nil); rec.Code != http.StatusNotFound || !strings.Contains(rec.Body.String(), "not_found") {
+		t.Fatalf("API 404 under base: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := do(h, http.MethodGet, "/api/nope", nil); strings.Contains(rec.Body.String(), "not_found") {
+		t.Fatal("API answered outside the base path")
 	}
 }

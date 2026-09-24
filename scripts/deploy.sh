@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # One-command release on the server, modelled on crab's deploy.sh:
-# checks → backup → fast-forward pull → build → replace → Caddy site → self-check,
+# checks → backup → fast-forward pull → build → replace → Caddy route → self-check,
 # rolling back code and image when the self-check fails.
 #
 #   cd /opt/healthlog && ./scripts/deploy.sh
@@ -11,8 +11,8 @@
 #   BRANCH           branch to deploy (default main)
 #   HEALTH_TIMEOUT   seconds to wait for /healthz (default 90)
 #   SKIP_BACKUP=1    skip the pre-deploy backup (not recommended)
-#   CADDY_CONTAINER  crab's Caddy container (default crab-caddy)
-#   CADDY_SITES_DIR  host dir mounted into it at /etc/caddy/sites (default /opt/caddy-sites)
+#   CADDY_CONTAINER   crab's Caddy container (default crab-caddy)
+#   CADDY_ROUTES_DIR  host dir mounted into it at /etc/caddy/routes (default /opt/caddy-routes)
 #
 # Migrations only move forward. A rollback restores the old code and image but not the old
 # schema; restore the pre-deploy dump in backup/db/ if a migration has to be undone.
@@ -23,7 +23,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 BRANCH="${BRANCH:-main}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-90}"
 CADDY_CONTAINER="${CADDY_CONTAINER:-crab-caddy}"
-CADDY_SITES_DIR="${CADDY_SITES_DIR:-/opt/caddy-sites}"
+CADDY_ROUTES_DIR="${CADDY_ROUTES_DIR:-/opt/caddy-routes}"
 ROLLBACK_IMAGE="healthlog:rollback"
 
 log() { echo "[$(date "+%FT%T%z")] $*"; }
@@ -33,8 +33,13 @@ env_value() { grep -E "^$1=" .env | tail -n1 | cut -d= -f2- || true; }
 # ---------- 0. checks ----------
 [ -f docker-compose.yml ] || die "找不到 docker-compose.yml，请在项目目录执行"
 [ -f .env ] || die "缺少 .env，见 deploy/DEPLOY.md"
-DOMAIN="$(env_value HEALTH_DOMAIN)"
-[ -n "$DOMAIN" ] || die ".env 里没有 HEALTH_DOMAIN"
+[ -n "$(env_value PUBLIC_DOMAIN)" ] || die ".env 里没有 PUBLIC_DOMAIN（crab 的域名）"
+BASE_PATH="$(env_value BASE_PATH)"; BASE_PATH="${BASE_PATH%/}"; BASE_PATH="${BASE_PATH:-/health}"
+echo "$BASE_PATH" | grep -Eq '^(/[A-Za-z0-9][A-Za-z0-9._-]*)+$' || die "BASE_PATH 格式不对：$BASE_PATH"
+# crab owns /api/*, /t* and /r* on the shared domain.
+case "$BASE_PATH" in
+    /api|/api/*|/t*|/r*) die "BASE_PATH=$BASE_PATH 会和 crab 的 /api、/t*、/r* 冲突，换一个前缀" ;;
+esac
 if [ -n "$(git status --porcelain)" ]; then
     git status --short | sed 's/^/    /' >&2
     die "工作区有未提交的改动。生产机上不要改代码，先处理干净再部署"
@@ -78,24 +83,25 @@ fi
 # ---------- 4. replace ----------
 docker compose up -d
 
-# ---------- 5. Caddy site (crab's Caddy imports $CADDY_SITES_DIR/*.caddy) ----------
-if [ -d "$CADDY_SITES_DIR" ]; then
-    rendered="$(sed "s/__HEALTH_DOMAIN__/$DOMAIN/" deploy/caddy/healthlog.caddy)"
-    if ! [ -f "$CADDY_SITES_DIR/healthlog.caddy" ] || [ "$rendered" != "$(cat "$CADDY_SITES_DIR/healthlog.caddy")" ]; then
-        printf '%s\n' "$rendered" > "$CADDY_SITES_DIR/healthlog.caddy"
+# ---------- 5. Caddy route (imported inside crab's site block) ----------
+if [ -d "$CADDY_ROUTES_DIR" ]; then
+    rendered="$(sed "s#__BASE_PATH__#$BASE_PATH#g" deploy/caddy/healthlog.caddy)"
+    target="$CADDY_ROUTES_DIR/healthlog.caddy"
+    if ! [ -f "$target" ] || [ "$rendered" != "$(cat "$target")" ]; then
+        printf '%s\n' "$rendered" > "$target"
         docker exec "$CADDY_CONTAINER" caddy reload --config /etc/caddy/Caddyfile \
-            || die "Caddy 重载失败：docker logs $CADDY_CONTAINER 查看；站点文件在 $CADDY_SITES_DIR/healthlog.caddy"
-        log "Caddy 站点已更新并重载"
+            || die "Caddy 重载失败：docker logs $CADDY_CONTAINER 查看；路由文件在 $target"
+        log "Caddy 路由已更新并重载（$BASE_PATH/）"
     fi
 else
-    log "⚠ 没有 $CADDY_SITES_DIR，跳过 Caddy 配置（见 deploy/DEPLOY.md 第 2 节）"
+    log "⚠ 没有 $CADDY_ROUTES_DIR，跳过 Caddy 配置（见 deploy/DEPLOY.md 第 2 节）"
 fi
 
 # ---------- 6. self-check ----------
 log "自检 /healthz（最多 ${HEALTH_TIMEOUT}s）..."
 deadline=$(( $(date +%s) + HEALTH_TIMEOUT ))
 while [ "$(date +%s)" -lt "$deadline" ]; do
-    if docker compose exec -T app wget -qO- http://127.0.0.1:8080/healthz 2>/dev/null | grep -q '"status":"ok"'; then
+    if docker compose exec -T app wget -qO- "http://127.0.0.1:8080$BASE_PATH/healthz" 2>/dev/null | grep -q '"status":"ok"'; then
         log "✓ 部署完成：${OLD_SHA:0:8} → ${NEW_SHA:0:8}"
         docker compose ps
         exit 0

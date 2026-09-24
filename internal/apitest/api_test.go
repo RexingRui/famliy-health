@@ -2,6 +2,7 @@ package apitest
 
 import (
 	"bytes"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -464,4 +465,37 @@ func TestHealthz(t *testing.T) {
 	var h api.Health
 	e.anon().do("GET", "/healthz", nil).expect(200).decode(&h)
 	must(t, h.Checks["database"] == "ok", "health = %+v", h)
+}
+
+func TestBasePathDeployment(t *testing.T) {
+	e := newEnvAt(t, "/health")
+	c := e.anon()
+	if _, err := e.svc.CreateAccount(t.Context(), "mom", "password-123", "", "家"); err != nil {
+		t.Fatal(err)
+	}
+	res := c.do("POST", "/api/auth/login", map[string]string{"username": "mom", "password": "password-123"}).expect(200)
+	cookie := res.header.Get("Set-Cookie")
+	must(t, strings.HasPrefix(cookie, "hl_sid=") && strings.Contains(cookie, "Path=/health/"), "cookie = %s", cookie)
+
+	m := c.createMember("小明")
+	rec := c.putRecord(newID(t), map[string]any{"memberId": m.Id, "occurredAt": time.Now()})
+	var a api.Attachment
+	c.upload(newID(t), map[string]string{"kind": "photo", "recordId": rec.Id.String()}, jpegBytes(t, 40, 40)).expect(201).decode(&a)
+	must(t, strings.HasPrefix(a.Url, "/health/api/attachments/") && strings.HasPrefix(*a.ThumbUrl, "/health/"), "urls = %s %s", a.Url, *a.ThumbUrl)
+	c.do("GET", a.Url, nil).expect(200)
+
+	ep := c.createEpisode(m.Id, "感冒", "short")
+	c.do("POST", "/api/exports", map[string]any{"type": "episode", "episodeId": ep.Id, "photos": "none"}).expect(200)
+	e.mu.Lock()
+	printURL := e.printURLs[len(e.printURLs)-1]
+	e.mu.Unlock()
+	must(t, strings.HasPrefix(printURL, "http://app.internal:8080/health/print/episode/"), "print url = %s", printURL)
+
+	// Nothing answers outside the prefix, so crab keeps /api, /t and /r on the shared domain.
+	res2, err := http.Get(e.srv.URL + "/api/me")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res2.Body.Close()
+	must(t, res2.StatusCode == 404, "outside prefix: %d", res2.StatusCode)
 }

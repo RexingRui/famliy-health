@@ -47,9 +47,9 @@
 | 契约 | OpenAPI 3（`api/openapi.yaml`）→ oapi-codegen（Go strict server）+ openapi-typescript（TS 类型） |
 | 数据库 | PostgreSQL 16 |
 | 媒体 / PDF | ffmpeg（语音转 AAC m4a）、Gotenberg（无头 Chromium，官方镜像自带中文字体） |
-| 部署 | docker compose：app + postgres + gotenberg；HTTPS 由同机 crab 项目的 Caddy 统一提供（见 [deploy/DEPLOY.md](deploy/DEPLOY.md)） |
+| 部署 | docker compose：app + postgres + gotenberg；与 crab 共用服务器和域名，挂在 `/health/` 路径下，HTTPS 由 crab 的 Caddy 提供（见 [deploy/DEPLOY.md](deploy/DEPLOY.md)） |
 
-前端构建产物通过 `go:embed` 编进后端二进制，前后端同域。`/api/*` 走接口，其余路径返回前端 `index.html`。
+前端构建产物通过 `go:embed` 编进后端二进制，前后端同域。`/api/*` 走接口，其余路径返回前端 `index.html`。整个应用可以挂在路径前缀下（`BASE_PATH`，生产为 `/health`），此时所有路径都在前缀之下，如 `/health/api/me`。
 
 ## 目录结构
 
@@ -123,11 +123,11 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 
 ## 接口速览
 
-完整定义见 `api/openapi.yaml`。所有业务接口在 `/api` 下，除登录、`/healthz`、附件文件和打印取数外都需要登录。
+完整定义见 `api/openapi.yaml`。所有业务接口在 `/api` 下（生产环境实际是 `/health/api`），除登录、`/healthz`、附件文件和打印取数外都需要登录。
 
 | 分组 | 接口 | 要点 |
 |---|---|---|
-| 账号 | `POST /auth/login`、`POST /auth/logout`、`GET /me` | Cookie `sid` 30 天滑动续期；同 IP 连续失败 5 次锁 15 分钟 |
+| 账号 | `POST /auth/login`、`POST /auth/logout`、`GET /me` | Cookie `hl_sid`（Path 为部署前缀）30 天滑动续期；同 IP 连续失败 5 次锁 15 分钟 |
 | 首页 | `GET /home` | 每个成员：未结束病程（最新体温、上次用药、本周日历）、最近 4 条记录、近一年病程数；待整理数量 |
 | 成员 | `/members` 增删改查、`/archive`、`/unarchive`、`/by-disease`、`/calendar` | 删除需 `confirm=true`，文件由后台任务清理 |
 | 病种 | `GET/POST /disease-tags` | 预置 + 自定义，同名返回已有 |
@@ -155,10 +155,12 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 - **时间**：库里一律 `timestamptz`；“今天”、按天分组、日历统计一律经 `timex`（Asia/Shanghai），不直接用 `time.Now()` 的本地时区。
 - **后台任务**：需要在事务提交后做的事（转码、删文件）在同一事务里入队，提交后唤醒 runner；失败按 1/5/30 分钟重试 3 次。
 - **日志**：slog JSON 输出到标准输出，访问日志带账号 ID；**不记录请求体、查询串（含打印令牌）和附件内容**。
-- **安全**：Cookie `sid`（HttpOnly、Secure、SameSite=Lax，本地 http 开发时关 Secure）；写请求校验 Origin；附件只能经鉴权接口或打印令牌（限定家庭和成员）读取。
+- **路径前缀**：路由都写成根路径（`/api/...`），由 `httpx` 统一挂到 `BASE_PATH` 下；响应里返回的 URL（附件、头像）和 Cookie Path 带前缀，打印页地址也带前缀。
+- **安全**：Cookie `hl_sid`（HttpOnly、Secure、SameSite=Lax，本地 http 开发时关 Secure）；写请求校验 Origin；附件只能经鉴权接口或打印令牌（限定家庭和成员）读取。
 
 ### 前端
 
+- **路径前缀**：构建时由 `VITE_BASE_PATH` 决定（Docker 构建自动传入），资源地址和路由 basename 随之变化。调接口一律用 `apiFetch('/api/...')` 或 `apiUrl()`，不要手写前缀；接口返回的附件、头像 URL 已含前缀，直接用。
 - 以 1024px（Tailwind `lg`）切换两套外壳；页面数据和逻辑共用，只有布局按端区分（`useIsDesktop`）。手机端全屏页（记一笔等）在路由 `handle` 里设 `hideMobileTabBar`。
 - 服务端数据全部走 TanStack Query；保存记录后使首页、病程、待整理相关查询失效。
 - 草稿和上传队列存 IndexedDB：**先落本地、再传服务器**，失败在首页提示并重试。
@@ -182,8 +184,10 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 
 | 方案 | 实际 | 原因 |
 |---|---|---|
-| 自带 Caddy 容器 | 接入同机 crab 的 Caddy | 两个反代抢 443 会导致 HTTPS 随机失败，见 [deploy/DEPLOY.md](deploy/DEPLOY.md) |
-| 国内服务器需备案 1–3 周 | 用 crab 已备案主域名的子域名 | 备案按主域名，技术方案里的这项风险不再存在 |
+| 自带 Caddy 容器、独立域名 | 与 crab 同一个域名，挂在 `/health/` 下，由 crab 的 Caddy 转发 | 两个反代抢 443 会导致 HTTPS 随机失败；同域名不用新增解析、证书和备案，见 [deploy/DEPLOY.md](deploy/DEPLOY.md) |
+| 国内服务器需备案 1–3 周 | 沿用 crab 已备案的域名 | 技术方案里的这项风险不再存在 |
+| 应用在根路径 | 新增 `BASE_PATH`，整个应用可挂在前缀下 | crab 已占用该域名的 `/api/*`、`/t*`、`/r*` |
+| Cookie `sid` | Cookie `hl_sid`，Path 限定为前缀 | 同域名下不和其他应用混用 |
 | `SESSION_SECRET` | 不需要 | 会话令牌是随机值，库里只存哈希，不需要签名密钥 |
 | — | 新增 `PRINT_BASE_URL` | Gotenberg 打开打印页的地址（生产 `http://app:8080`，本地为 Vite） |
 | 自建 Gotenberg 镜像装中文字体 | 直接用官方镜像 | 官方镜像已含 `fonts-noto-cjk`，省掉服务器上的 apt |
@@ -207,26 +211,26 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 
 ## 待定事项
 
-- [x] ~~服务器与域名~~：与 crab 共用服务器，用其已备案主域名的子域名
+- [x] ~~服务器与域名~~：与 crab 共用服务器和域名，路径 `/health/`
 - [ ] 预置病种列表：在技术方案示例的基础上补了常见病，先写入 17 个（`db/migrations/00002_preset_disease_tags.sql`），需要增删就加一个新迁移
-- [ ] crab 仓库的一次性改动：Caddyfile 加 `import /etc/caddy/sites/*.caddy` 并挂载 `/opt/caddy-sites`（[deploy/DEPLOY.md](deploy/DEPLOY.md) 第 2 节）
+- [ ] crab 仓库的一次性改动：站点块内加 `import /etc/caddy/routes/*.caddy` 并挂载 `/opt/caddy-routes`（[deploy/DEPLOY.md](deploy/DEPLOY.md) 第 2 节）
 - [ ] 设计稿补充：登录页、记录详情与编辑页、手机端成员列表
 - [ ] 电脑端“记一笔”是否用弹窗
 - [ ] 展示字体 ZCOOL XiaoWei 是否自托管子集
 
 ## 部署
 
-与 crab 共用一台服务器，完整步骤和踩坑记录见 **[deploy/DEPLOY.md](deploy/DEPLOY.md)**。简要：
+与 crab 共用一台服务器和域名，访问地址是 `https://<crab 的域名>/health/`。完整步骤和踩坑记录见 **[deploy/DEPLOY.md](deploy/DEPLOY.md)**。简要：
 
 ```bash
 cd /opt/healthlog
-cp .env.example .env && vi .env         # HEALTH_DOMAIN、POSTGRES_PASSWORD、PRINT_TOKEN_SECRET
+cp .env.example .env && vi .env         # PUBLIC_DOMAIN（crab 的域名）、POSTGRES_PASSWORD、PRINT_TOKEN_SECRET
 sudo make docker-init
-./scripts/deploy.sh                     # 备份 → 拉代码 → 构建 → 替换 → 写 Caddy 站点 → 自检，失败自动回滚
+./scripts/deploy.sh                     # 备份 → 拉代码 → 构建 → 替换 → 写 Caddy 路由 → 自检，失败自动回滚
 docker compose exec app healthlog user create --username me
 ```
 
-应用启动时自动执行迁移。`/healthz` 检查数据库和 Gotenberg 连通性，可接外部拨测。每天凌晨用 `scripts/backup.sh` 备份。
+应用启动时自动执行迁移。`/health/healthz` 检查数据库和 Gotenberg 连通性，可接外部拨测。每天凌晨用 `scripts/backup.sh` 备份。
 
 ## License
 

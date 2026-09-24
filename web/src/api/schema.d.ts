@@ -31,7 +31,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * 用户名密码登录，成功后下发 Cookie sid（30 天，活跃时滑动续期）
+         * 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
          * @description 同一 IP 连续失败 5 次锁定 15 分钟，锁定期间返回 429。
          */
         post: operations["login"];

@@ -12,7 +12,9 @@ info:
     - 记录和附件用 `PUT /{id}` 幂等创建，ID 由前端生成（UUIDv7）：首次创建返回 201，重复提交返回 200 和已有资源。
     - PATCH 只改请求里出现的字段；可清空的字段传 null 表示清空。
     - 列表用游标分页，默认每页 50 条。
-    - 鉴权用 Cookie `sid`（登录接口下发）；所有写请求校验 Origin 头。
+    - 鉴权用 Cookie `hl_sid`（登录接口下发，Path 为部署前缀）；所有写请求校验 Origin 头。
+    - 部署在路径前缀下（生产为 `/health`，与 crab 共用域名）：下文路径都相对于该前缀，
+      如 `/api/me` 实际为 `/health/api/me`；响应里返回的 URL（附件、头像）已包含前缀，可直接使用。
     - 错误统一返回 Error 结构。
 servers:
   - url: /
@@ -51,7 +53,7 @@ paths:
     post:
       tags: [auth]
       operationId: login
-      summary: 用户名密码登录，成功后下发 Cookie sid（30 天，活跃时滑动续期）
+      summary: 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
       description: 同一 IP 连续失败 5 次锁定 15 分钟，锁定期间返回 429。
       security: []
       requestBody:
@@ -709,7 +711,7 @@ components:
     cookieAuth:
       type: apiKey
       in: cookie
-      name: sid
+      name: hl_sid
 
   parameters:
     Id:

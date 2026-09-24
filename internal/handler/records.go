@@ -37,7 +37,7 @@ func (h *Handler) ListRecords(ctx context.Context, req api.ListRecordsRequestObj
 	if err != nil {
 		return nil, err
 	}
-	return api.ListRecords200JSONResponse{Items: toRecords(page.Items), NextCursor: page.NextCursor}, nil
+	return api.ListRecords200JSONResponse{Items: h.toRecords(page.Items), NextCursor: page.NextCursor}, nil
 }
 
 func (h *Handler) GetRecord(ctx context.Context, req api.GetRecordRequestObject) (api.GetRecordResponseObject, error) {
@@ -49,7 +49,7 @@ func (h *Handler) GetRecord(ctx context.Context, req api.GetRecordRequestObject)
 	if err != nil {
 		return nil, err
 	}
-	return api.GetRecord200JSONResponse(toRecord(r)), nil
+	return api.GetRecord200JSONResponse(h.toRecord(r)), nil
 }
 
 func (h *Handler) PutRecord(ctx context.Context, req api.PutRecordRequestObject) (api.PutRecordResponseObject, error) {
@@ -65,9 +65,9 @@ func (h *Handler) PutRecord(ctx context.Context, req api.PutRecordRequestObject)
 		return nil, err
 	}
 	if created {
-		return api.PutRecord201JSONResponse(toRecord(r)), nil
+		return api.PutRecord201JSONResponse(h.toRecord(r)), nil
 	}
-	return api.PutRecord200JSONResponse(toRecord(r)), nil
+	return api.PutRecord200JSONResponse(h.toRecord(r)), nil
 }
 
 func (h *Handler) UpdateRecord(ctx context.Context, req api.UpdateRecordRequestObject) (api.UpdateRecordResponseObject, error) {
@@ -82,7 +82,7 @@ func (h *Handler) UpdateRecord(ctx context.Context, req api.UpdateRecordRequestO
 	if err != nil {
 		return nil, err
 	}
-	return api.UpdateRecord200JSONResponse(toRecord(r)), nil
+	return api.UpdateRecord200JSONResponse(h.toRecord(r)), nil
 }
 
 func (h *Handler) DeleteRecord(ctx context.Context, req api.DeleteRecordRequestObject) (api.DeleteRecordResponseObject, error) {

@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	CookieName = "sid"
+	// Distinct name: the domain is shared with crab.
+	CookieName = "hl_sid"
 	bcryptCost = 12
 )
 

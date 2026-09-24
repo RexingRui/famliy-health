@@ -45,37 +45,42 @@ func toMe(m service.Me) api.Me {
 	}
 }
 
-func attachmentURL(a dbgen.Attachment) string {
-	return "/api/attachments/" + a.ID.String() + "/file"
+// mapper builds API responses; URLs it emits include the deployment base path.
+type mapper struct {
+	base string
 }
 
-func toAttachment(a dbgen.Attachment) api.Attachment {
+func (m mapper) attachmentURL(a dbgen.Attachment) string {
+	return m.base + "/api/attachments/" + a.ID.String() + "/file"
+}
+
+func (m mapper) toAttachment(a dbgen.Attachment) api.Attachment {
 	out := api.Attachment{
 		Id: a.ID, RecordId: a.RecordID, Kind: api.AttachmentKind(a.Kind), Status: api.AttachmentStatus(a.Status),
 		Mime: a.Mime, SizeBytes: a.SizeBytes, DurationMs: intPtr(a.DurationMs), Width: intPtr(a.Width),
-		Height: intPtr(a.Height), Caption: a.Caption, SortOrder: int(a.SortOrder), Url: attachmentURL(a),
+		Height: intPtr(a.Height), Caption: a.Caption, SortOrder: int(a.SortOrder), Url: m.attachmentURL(a),
 		CreatedAt: ts(a.CreatedAt),
 	}
 	if a.Kind != dbgen.AttachmentKindAudio && a.StorageKey != nil {
-		out.ThumbUrl = strPtrNonEmpty(attachmentURL(a) + "?variant=thumb")
+		out.ThumbUrl = strPtrNonEmpty(m.attachmentURL(a) + "?variant=thumb")
 	}
 	return out
 }
 
-func toMember(m service.MemberView) api.Member {
+func (m mapper) toMember(mv service.MemberView) api.Member {
 	out := api.Member{
-		Id: m.ID, Nickname: m.Nickname, Relation: api.MemberRelation(m.Relation), Gender: api.Gender(m.Gender),
-		BirthDate: date(m.BirthDate), AvatarId: m.AvatarID, Allergies: m.Allergies, Notes: m.Notes,
-		SortOrder: int(m.SortOrder), Archived: m.ArchivedAt != nil, LongEpisodes: make([]api.EpisodeRef, len(m.LongEpisodes)),
-		CreatedAt: ts(m.CreatedAt), UpdatedAt: ts(m.UpdatedAt),
+		Id: mv.ID, Nickname: mv.Nickname, Relation: api.MemberRelation(mv.Relation), Gender: api.Gender(mv.Gender),
+		BirthDate: date(mv.BirthDate), AvatarId: mv.AvatarID, Allergies: mv.Allergies, Notes: mv.Notes,
+		SortOrder: int(mv.SortOrder), Archived: mv.ArchivedAt != nil, LongEpisodes: make([]api.EpisodeRef, len(mv.LongEpisodes)),
+		CreatedAt: ts(mv.CreatedAt), UpdatedAt: ts(mv.UpdatedAt),
 	}
-	if m.AvatarID != nil {
-		out.AvatarUrl = strPtrNonEmpty("/api/attachments/" + m.AvatarID.String() + "/file?variant=thumb")
+	if mv.AvatarID != nil {
+		out.AvatarUrl = strPtrNonEmpty(m.base + "/api/attachments/" + mv.AvatarID.String() + "/file?variant=thumb")
 	}
-	if m.BloodType != nil {
-		out.BloodType = (*api.BloodType)(m.BloodType)
+	if mv.BloodType != nil {
+		out.BloodType = (*api.BloodType)(mv.BloodType)
 	}
-	for i, e := range m.LongEpisodes {
+	for i, e := range mv.LongEpisodes {
 		out.LongEpisodes[i] = api.EpisodeRef{
 			Id: e.ID, Name: e.Name, DiseaseName: e.DiseaseName, Kind: api.EpisodeKind(e.Kind), Status: api.EpisodeStatus(e.Status),
 		}
@@ -83,10 +88,10 @@ func toMember(m service.MemberView) api.Member {
 	return out
 }
 
-func toMembers(ms []service.MemberView) []api.Member {
+func (m mapper) toMembers(ms []service.MemberView) []api.Member {
 	out := make([]api.Member, len(ms))
-	for i, m := range ms {
-		out[i] = toMember(m)
+	for i, mv := range ms {
+		out[i] = m.toMember(mv)
 	}
 	return out
 }
@@ -121,7 +126,7 @@ func toDetails(d service.RecordDetails) api.RecordDetails {
 	}
 }
 
-func toRecord(r service.RecordView) api.Record {
+func (m mapper) toRecord(r service.RecordView) api.Record {
 	out := api.Record{
 		Id: r.ID, MemberId: r.MemberID, EpisodeId: r.EpisodeID, OccurredAt: ts(r.OccurredAt),
 		CreatedAt: ts(r.CreatedAt), UpdatedAt: ts(r.UpdatedAt), Backfilled: r.Backfilled(), Body: r.Body,
@@ -136,15 +141,15 @@ func toRecord(r service.RecordView) api.Record {
 		out.MedUnit = (*api.MedUnit)(r.MedUnit)
 	}
 	for i, a := range r.Attachments {
-		out.Attachments[i] = toAttachment(a)
+		out.Attachments[i] = m.toAttachment(a)
 	}
 	return out
 }
 
-func toRecords(rs []service.RecordView) []api.Record {
+func (m mapper) toRecords(rs []service.RecordView) []api.Record {
 	out := make([]api.Record, len(rs))
 	for i, r := range rs {
-		out[i] = toRecord(r)
+		out[i] = m.toRecord(r)
 	}
 	return out
 }
@@ -187,14 +192,14 @@ func toTrendPoints(ps []service.TrendPoint) []api.TrendPoint {
 	return out
 }
 
-func toHome(h service.Home) api.Home {
+func (m mapper) toHome(h service.Home) api.Home {
 	out := api.Home{InboxCount: h.InboxCount, Members: make([]api.HomeMember, len(h.Members))}
-	for i, m := range h.Members {
+	for i, hmv := range h.Members {
 		hm := api.HomeMember{
-			Member: toMember(m.Member), RecentRecords: toRecords(m.RecentRecords),
-			EpisodeCountLastYear: m.EpisodeCountLastYear, OpenEpisodes: make([]api.EpisodeSummary, len(m.OpenEpisodes)),
+			Member: m.toMember(hmv.Member), RecentRecords: m.toRecords(hmv.RecentRecords),
+			EpisodeCountLastYear: hmv.EpisodeCountLastYear, OpenEpisodes: make([]api.EpisodeSummary, len(hmv.OpenEpisodes)),
 		}
-		for j, e := range m.OpenEpisodes {
+		for j, e := range hmv.OpenEpisodes {
 			s := api.EpisodeSummary{Episode: toEpisode(e.Episode), Week: toCalendarDays(e.Week)}
 			if t := e.LatestTemperature; t != nil && t.Temperature != nil {
 				s.LatestTemperature = &api.TemperatureReading{RecordId: t.ID, Value: *t.Temperature, OccurredAt: ts(t.OccurredAt)}
@@ -237,10 +242,10 @@ func toByDisease(rng string, ds []service.DiseaseSummary) api.ByDisease {
 	return out
 }
 
-func toPrintData(d service.PrintData) api.PrintData {
+func (m mapper) toPrintData(d service.PrintData) api.PrintData {
 	out := api.PrintData{
 		Type: api.ReportType(d.Request.Type), GeneratedAt: ts(d.GeneratedAt), Photos: api.PhotoOption(d.Request.Photos),
-		Member: toMember(d.Member), Episodes: toEpisodes(d.Episodes), Records: toRecords(d.Records),
+		Member: m.toMember(d.Member), Episodes: toEpisodes(d.Episodes), Records: m.toRecords(d.Records),
 		CostTotalCents: int(d.CostTotalCents), Token: d.Token,
 	}
 	if d.Request.From != nil {

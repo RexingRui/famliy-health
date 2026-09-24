@@ -19,6 +19,7 @@ type CheckerFunc func(ctx context.Context) error
 func (f CheckerFunc) Ping(ctx context.Context) error { return f(ctx) }
 
 type Handler struct {
+	mapper
 	svc          *service.Service
 	checks       map[string]Checker
 	cookieSecure bool
@@ -31,10 +32,20 @@ type Options struct {
 	Checks  map[string]Checker
 	// CookieSecure must be true behind HTTPS; plain-http local dev turns it off.
 	CookieSecure bool
+	// BasePath ("" or "/health") prefixes emitted URLs and scopes the session cookie.
+	BasePath string
 }
 
 func New(o Options) *Handler {
-	return &Handler{svc: o.Service, checks: o.Checks, cookieSecure: o.CookieSecure}
+	return &Handler{mapper: mapper{base: o.BasePath}, svc: o.Service, checks: o.Checks, cookieSecure: o.CookieSecure}
+}
+
+// cookiePath keeps the session cookie away from other apps on the same domain.
+func (h *Handler) cookiePath() string {
+	if h.base == "" {
+		return "/"
+	}
+	return h.base + "/"
 }
 
 func (h *Handler) Healthz(ctx context.Context, _ api.HealthzRequestObject) (api.HealthzResponseObject, error) {

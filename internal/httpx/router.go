@@ -5,6 +5,7 @@ package httpx
 import (
 	"io/fs"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -17,6 +18,8 @@ type Options struct {
 	StrictMiddlewares []api.StrictMiddlewareFunc
 	Web               fs.FS
 	PublicBaseURL     string
+	// BasePath ("" or "/health") prefixes every route, including /healthz and the SPA.
+	BasePath string
 }
 
 func NewRouter(opts Options) http.Handler {
@@ -42,5 +45,28 @@ func NewRouter(opts Options) http.Handler {
 	r.MethodNotAllowed(func(w http.ResponseWriter, _ *http.Request) {
 		WriteError(w, http.StatusMethodNotAllowed, "method_not_allowed", "不支持的请求方法", nil)
 	})
-	return r
+	return withBasePath(opts.BasePath, r)
+}
+
+// withBasePath serves h under base, so the app can share a domain with another site
+// (crab owns /api, /t and /r there). Routes inside h stay root-relative.
+func withBasePath(base string, h http.Handler) http.Handler {
+	if base == "" {
+		return h
+	}
+	strip := http.StripPrefix(base, h)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == base:
+			target := base + "/"
+			if r.URL.RawQuery != "" {
+				target += "?" + r.URL.RawQuery
+			}
+			http.Redirect(w, r, target, http.StatusPermanentRedirect)
+		case strings.HasPrefix(r.URL.Path, base+"/"):
+			strip.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
 }

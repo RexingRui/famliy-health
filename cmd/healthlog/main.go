@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -111,13 +112,14 @@ func serve(ctx context.Context) error {
 	if signer, err := report.NewSigner(cfg.PrintTokenSecret); err != nil {
 		slog.Warn("PDF export disabled", "reason", err.Error())
 	} else {
-		svc.SetReports(service.Reports{Signer: signer, Gotenberg: gotenberg, PrintBaseURL: cfg.PrintBaseURL})
+		svc.SetReports(service.Reports{Signer: signer, Gotenberg: gotenberg, PrintBaseURL: strings.TrimRight(cfg.PrintBaseURL, "/") + cfg.BasePath})
 	}
 
 	healthGotenberg := &report.Gotenberg{BaseURL: cfg.GotenbergURL, Client: &http.Client{Timeout: 3 * time.Second}}
 	h := handler.New(handler.Options{
 		Service:      svc,
 		CookieSecure: cfg.CookieSecure(),
+		BasePath:     cfg.BasePath,
 		Checks: map[string]handler.Checker{
 			"database":  st.Pool,
 			"gotenberg": handler.CheckerFunc(healthGotenberg.Health),
@@ -131,6 +133,7 @@ func serve(ctx context.Context) error {
 			StrictMiddlewares: []api.StrictMiddlewareFunc{h.AuthMiddleware},
 			Web:               web.Dist(),
 			PublicBaseURL:     cfg.PublicBaseURL,
+			BasePath:          cfg.BasePath,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
@@ -142,7 +145,7 @@ func serve(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		slog.Info("http server listening", "addr", cfg.HTTPAddr)
+		slog.Info("http server listening", "addr", cfg.HTTPAddr, "base_path", cfg.BasePath)
 		errCh <- srv.ListenAndServe()
 	}()
 
