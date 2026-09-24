@@ -1,0 +1,21 @@
+# Site block imported by crab's Caddy (crab-caddy). scripts/deploy.sh renders it with the real
+# domain into CADDY_SITES_DIR and reloads Caddy. The global `protocols h1 h2` in crab's
+# Caddyfile applies here too: do not advertise HTTP/3 (Safari fails when UDP 443 is blocked).
+__HEALTH_DOMAIN__ {
+	encode zstd gzip
+
+	# Photos are ≤10 MB and audio ≤20 MB after client-side compression.
+	request_body {
+		max_size 50MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+		X-Robots-Tag noindex
+	}
+
+	# /healthz stays public on purpose so an external uptime monitor can probe it.
+	reverse_proxy healthlog-app:8080
+}
