@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+
+/* Design tokens from the design canvas (家庭健康管理 · 设计稿). Layout breakpoint: lg = 1024px. */
+@theme {
+  --font-sans: 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-display: 'ZCOOL XiaoWei', 'Songti SC', 'STSong', serif;
+
+  --color-page: #edf1ef;
+  --color-surface: #ffffff;
+  --color-field: #fafbfa;
+  --color-segment: #dde3e1;
+  --color-ink: #1b2826;
+  --color-ink-muted: #4e5d5a;
+  --color-ink-subtle: #8a9693;
+  --color-line: #d5dcd9;
+  --color-line-soft: #eef1f0;
+
+  --color-primary: #1e6b58;
+  --color-primary-soft: #dcebe5;
+  --color-alert: #b04e15;
+  --color-alert-soft: #f6e4d8;
+
+  /* Record types: foreground / soft background pairs. */
+  --color-symptom: #b04e15;
+  --color-symptom-soft: #f6e4d8;
+  --color-temperature: #8c560a;
+  --color-temperature-soft: #f7ebd3;
+  --color-medication: #2c679e;
+  --color-medication-soft: #dde8f3;
+  --color-treatment: #1e6b58;
+  --color-treatment-soft: #dcebe5;
+  --color-visit: #1b2826;
+  --color-visit-soft: #e3e7e6;
+  --color-other: #4e5d5a;
+  --color-other-soft: #ecefee;
+
+  --radius-card: 18px;
+  --radius-control: 12px;
+}
+
+@layer base {
+  html,
+  body {
+    background: var(--color-page);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+}
