@@ -47,7 +47,7 @@
 | 契约 | OpenAPI 3（`api/openapi.yaml`）→ oapi-codegen（Go strict server）+ openapi-typescript（TS 类型） |
 | 数据库 | PostgreSQL 16 |
 | 媒体 / PDF | ffmpeg（语音转 AAC m4a）、Gotenberg（无头 Chromium，官方镜像自带中文字体） |
-| 部署 | docker compose：app + postgres + gotenberg；与 crab 共用服务器和域名，挂在 `/health/` 路径下，HTTPS 由 crab 的 Caddy 提供（见 [deploy/DEPLOY.md](deploy/DEPLOY.md)） |
+| 部署 | docker compose：app + postgres + gotenberg；与 crab 共用服务器和域名，挂在 `/health/` 路径下，HTTPS 由服务器上独立的网关 Caddy 提供（见 [deploy/DEPLOY.md](deploy/DEPLOY.md)） |
 
 前端构建产物通过 `go:embed` 编进后端二进制，前后端同域。`/api/*` 走接口，其余路径返回前端 `index.html`。整个应用可以挂在路径前缀下（`BASE_PATH`，生产为 `/health`），此时所有路径都在前缀之下，如 `/health/api/me`。
 
@@ -88,7 +88,7 @@ web/
     lib/                  recorder image drafts time
     styles/               Tailwind 主题（颜色取自设计稿）
 docker-compose.yml        生产部署（服务器上直接 docker compose up -d）
-deploy/                   Dockerfile、开发依赖 compose、Caddy 站点、部署文档 DEPLOY.md
+deploy/                   Dockerfile、开发依赖 compose、部署说明 DEPLOY.md、上线操作清单 SERVER_STEPS.md
 scripts/                  deploy.sh（发布与回滚）、backup.sh（pg_dump + 附件镜像）
 docs/                     产品方案、技术方案、设计要点
 Makefile                  gen、dev、test、lint、build、deploy、backup
@@ -184,7 +184,7 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 
 | 方案 | 实际 | 原因 |
 |---|---|---|
-| 自带 Caddy 容器、独立域名 | 与 crab 同一个域名，挂在 `/health/` 下，由 crab 的 Caddy 转发 | 两个反代抢 443 会导致 HTTPS 随机失败；同域名不用新增解析、证书和备案，见 [deploy/DEPLOY.md](deploy/DEPLOY.md) |
+| 自带 Caddy 容器、独立域名 | 与 crab 同一个域名，挂在 `/health/` 下；80/443 由服务器上独立的网关（`/opt/gateway`）按路径转发 | 两个反代抢 443 会导致 HTTPS 随机失败；网关独立于两个项目，互不依赖；同域名不用新增解析、证书和备案，见 [deploy/DEPLOY.md](deploy/DEPLOY.md) |
 | 国内服务器需备案 1–3 周 | 沿用 crab 已备案的域名 | 技术方案里的这项风险不再存在 |
 | 应用在根路径 | 新增 `BASE_PATH`，整个应用可挂在前缀下 | crab 已占用该域名的 `/api/*`、`/t*`、`/r*` |
 | Cookie `sid` | Cookie `hl_sid`，Path 限定为前缀 | 同域名下不和其他应用混用 |
@@ -213,24 +213,19 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 
 - [x] ~~服务器与域名~~：与 crab 共用服务器和域名，路径 `/health/`
 - [ ] 预置病种列表：在技术方案示例的基础上补了常见病，先写入 17 个（`db/migrations/00002_preset_disease_tags.sql`），需要增删就加一个新迁移
-- [ ] crab 仓库的一次性改动：站点块内加 `import /etc/caddy/routes/*.caddy` 并挂载 `/opt/caddy-routes`（[deploy/DEPLOY.md](deploy/DEPLOY.md) 第 2 节）
+- [ ] 服务器上线：按 [deploy/SERVER_STEPS.md](deploy/SERVER_STEPS.md) 部署 healthlog、建立独立网关（crab 不用改代码、不用重新部署）
 - [ ] 设计稿补充：登录页、记录详情与编辑页、手机端成员列表
 - [ ] 电脑端“记一笔”是否用弹窗
 - [ ] 展示字体 ZCOOL XiaoWei 是否自托管子集
 
 ## 部署
 
-与 crab 共用一台服务器和域名，访问地址是 `https://<crab 的域名>/health/`。完整步骤和踩坑记录见 **[deploy/DEPLOY.md](deploy/DEPLOY.md)**。简要：
+与 crab 共用一台服务器和域名，访问地址是 `https://<域名>/health/`。80/443 由服务器上独立的网关 Caddy（`/opt/gateway`）按路径转发，
+healthlog 只把端口绑在 `127.0.0.1:8081`，不依赖 crab 的任何东西。
 
-```bash
-cd /opt/healthlog
-cp .env.example .env && vi .env         # PUBLIC_DOMAIN（crab 的域名）、POSTGRES_PASSWORD、PRINT_TOKEN_SECRET
-sudo make docker-init
-./scripts/deploy.sh                     # 备份 → 拉代码 → 构建 → 替换 → 写 Caddy 路由 → 自检，失败自动回滚
-docker compose exec app healthlog user create --username me
-```
-
-应用启动时自动执行迁移。`/health/healthz` 检查数据库和 Gotenberg 连通性，可接外部拨测。每天凌晨用 `scripts/backup.sh` 备份。
+- 第一次上线：[deploy/SERVER_STEPS.md](deploy/SERVER_STEPS.md)（逐步操作清单，含网关配置和回滚）
+- 架构、踩坑记录、日常运维、备份：[deploy/DEPLOY.md](deploy/DEPLOY.md)
+- 日常发布：服务器上 `cd /opt/healthlog && ./scripts/deploy.sh`（备份 → 拉代码 → 构建 → 替换 → 自检，失败自动回滚）
 
 ## License
 

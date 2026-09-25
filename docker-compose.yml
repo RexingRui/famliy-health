@@ -1,13 +1,12 @@
-# Production on the server shared with crab (see deploy/DEPLOY.md).
+# Production (see deploy/DEPLOY.md and deploy/SERVER_STEPS.md).
 #
 #   cp .env.example .env && fill in the production section
 #   sudo make docker-init          # data/ and backup/ owned by the container user (uid 10001)
 #   docker compose up -d --build
 #
-# There is deliberately no Caddy here: crab's Caddy container already owns ports 80/443, and a
-# second one would make HTTPS handshakes fail at random. healthlog is served under a path on
-# crab's domain (https://<PUBLIC_DOMAIN>/health/): the app joins crab's network and the route
-# snippet deploy/caddy/healthlog.caddy is imported into crab's site block.
+# No reverse proxy here: the server runs one independent gateway (Caddy in /opt/gateway) that owns
+# 80/443 and routes https://<PUBLIC_DOMAIN>/health/* to 127.0.0.1:8081. This project only
+# publishes that loopback port and knows nothing about the other apps on the machine.
 name: healthlog
 
 x-logging: &logging
@@ -39,17 +38,13 @@ services:
       # Gotenberg opens the print page over the compose network, not through the public domain.
       PRINT_BASE_URL: http://app:8080
       BASE_PATH: ${BASE_PATH:-/health}
-      PUBLIC_BASE_URL: https://${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN (crab's domain) in .env}${BASE_PATH:-/health}
+      PUBLIC_BASE_URL: https://${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN in .env}${BASE_PATH:-/health}
       TZ: Asia/Shanghai
     volumes:
       - ./data/storage:/data/storage
-    # Loopback only (crab-api already holds 8080): for curl on the server, never public.
+    # Loopback only: the gateway on the host proxies to it; never reachable from outside.
     ports:
       - "127.0.0.1:8081:8080"
-    networks:
-      default: {}
-      edge:
-        aliases: [healthlog-app]
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,9 +79,3 @@ services:
     restart: unless-stopped
     command: ["gotenberg", "--api-timeout=60s", "--chromium-restart-after=30"]
     logging: *logging
-
-networks:
-  # crab's compose network, where its Caddy container lives.
-  edge:
-    external: true
-    name: ${EDGE_NETWORK:-crab-order_default}

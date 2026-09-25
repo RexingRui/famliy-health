@@ -491,7 +491,7 @@ func TestBasePathDeployment(t *testing.T) {
 	e.mu.Unlock()
 	must(t, strings.HasPrefix(printURL, "http://app.internal:8080/health/print/episode/"), "print url = %s", printURL)
 
-	// Nothing answers outside the prefix, so crab keeps /api, /t and /r on the shared domain.
+	// Nothing answers outside the prefix, leaving the rest of the shared domain to other apps.
 	res2, err := http.Get(e.srv.URL + "/api/me")
 	if err != nil {
 		t.Fatal(err)

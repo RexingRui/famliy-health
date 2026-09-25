@@ -48,8 +48,8 @@ func NewRouter(opts Options) http.Handler {
 	return withBasePath(opts.BasePath, r)
 }
 
-// withBasePath serves h under base, so the app can share a domain with another site
-// (crab owns /api, /t and /r there). Routes inside h stay root-relative.
+// withBasePath serves h under base, so the app can share a domain with other sites behind the
+// same gateway. Routes inside h stay root-relative.
 func withBasePath(base string, h http.Handler) http.Handler {
 	if base == "" {
 		return h

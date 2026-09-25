@@ -18,7 +18,7 @@ type Config struct {
 	// PrintBaseURL is the origin Gotenberg uses to open print pages (e.g. http://app:8080).
 	PrintBaseURL string
 	// BasePath mounts the whole app under a path prefix ("/health") when it shares a
-	// domain with another site; empty serves from the root.
+	// domain with other sites; empty serves from the root.
 	BasePath string
 }
 

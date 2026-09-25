@@ -51,7 +51,7 @@ type env struct {
 
 func newEnv(t *testing.T) *env { return newEnvAt(t, "") }
 
-// newEnvAt serves the app under base, as in production where it shares crab's domain.
+// newEnvAt serves the app under base, as in production behind the shared gateway.
 func newEnvAt(t *testing.T, base string) *env {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")

@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	// Distinct name: the domain is shared with crab.
+	// Distinct name: the domain may be shared with other apps behind the gateway.
 	CookieName = "hl_sid"
 	bcryptCost = 12
 )
