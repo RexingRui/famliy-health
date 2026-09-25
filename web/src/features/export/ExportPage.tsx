@@ -82,7 +82,8 @@ export function ExportPage() {
         `/print/${type}/${targetId}${query({
           ...range,
           photos,
-          sections: type === 'episode' && !allSections ? [...sections].join(',') : undefined,
+          // query() drops empty values, and no sections must not read as all of them.
+          sections: type === 'episode' && !allSections ? [...sections].join(',') || 'none' : undefined,
         })}`,
       )
     : ''
@@ -94,6 +95,7 @@ export function ExportPage() {
         photos,
         ...(type === 'episode' ? { episodeId } : { memberId }),
         ...range,
+        ...(type === 'episode' && !allSections ? { sections: [...sections] } : {}),
       }),
     onSuccess: ({ blob, fileName }) => {
       const url = URL.createObjectURL(blob)

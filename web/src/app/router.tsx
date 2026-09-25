@@ -30,7 +30,6 @@ export const routes: RouteObject[] = [
       { path: 'records/:id', handle: fullScreen, ...page(() => import('../features/record/RecordDetailPage'), 'RecordDetailPage') },
       { path: 'episodes/:id', handle: fullScreen, ...page(() => import('../features/episode/EpisodePage'), 'EpisodePage') },
       { path: 'inbox', ...page(() => import('../features/inbox/InboxPage'), 'InboxPage') },
-      { path: 'members', ...page(() => import('../features/member/MemberListPage'), 'MemberListPage') },
       { path: 'members/new', handle: fullScreen, ...page(() => import('../features/member/MemberFormPage'), 'MemberFormPage') },
       { path: 'members/:id', ...page(() => import('../features/member/MemberPage'), 'MemberPage') },
       { path: 'members/:id/edit', handle: fullScreen, ...page(() => import('../features/member/MemberFormPage'), 'MemberFormPage') },
