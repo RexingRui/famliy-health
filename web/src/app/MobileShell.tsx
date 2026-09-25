@@ -1,5 +1,5 @@
-import { NavLink, Outlet, useLocation } from 'react-router'
-import { HomeIcon, MembersIcon, MicIcon } from '../components/icons'
+import { NavLink, Outlet } from 'react-router'
+import { HomeIcon, MicIcon } from '../components/icons'
 import { cx } from '../lib/cx'
 import { useRouteHandle } from './routeHandle'
 
@@ -8,7 +8,6 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
 
 export function MobileShell() {
   const { hideMobileTabBar } = useRouteHandle()
-  const { pathname } = useLocation()
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -31,10 +30,8 @@ export function MobileShell() {
             </span>
             记一笔
           </NavLink>
-          <NavLink to="/members" className={() => tabClass({ isActive: pathname.startsWith('/members') })}>
-            <MembersIcon />
-            成员
-          </NavLink>
+          {/* Members live in the home page's avatar row; this slot keeps 记一笔 centered. */}
+          <span aria-hidden="true" className="w-16" />
         </nav>
       )}
     </div>

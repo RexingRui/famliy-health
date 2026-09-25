@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { formatClipLength, formatClipWords } from '../lib/time/format'
 import { PauseIcon, PlayIcon } from './icons'
 import { cx } from '../lib/cx'
+import { toast } from '../lib/toast'
 
 // Only one clip plays at a time across the page.
 let playing: HTMLAudioElement | null = null
@@ -75,7 +76,12 @@ export function AudioPlayer({
     }
     if (playing && playing !== a) playing.pause()
     playing = a
-    void a.play().catch(() => setPlaying(false))
+    void a.play().catch((err: unknown) => {
+      setPlaying(false)
+      // AbortError: paused again before playback started.
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      toast('这段语音放不了，换个浏览器试试', 'error')
+    })
   }
 
   function seek(e: MouseEvent<HTMLSpanElement>) {

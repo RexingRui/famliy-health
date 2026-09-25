@@ -41,6 +41,15 @@ func (h *Handler) CreateExport(ctx context.Context, req api.CreateExportRequestO
 	if b.To != nil {
 		r.To = &b.To.Time
 	}
+	if b.Sections != nil {
+		r.Sections = make([]string, 0, len(*b.Sections))
+		for _, s := range *b.Sections {
+			if !s.Valid() {
+				return nil, errs.Validation("报告内容选项不正确", map[string]string{"sections": "invalid"})
+			}
+			r.Sections = append(r.Sections, string(s))
+		}
+	}
 	pdf, name, err := h.svc.Export(ctx, p, r)
 	if err != nil {
 		return nil, err

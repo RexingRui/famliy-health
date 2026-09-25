@@ -47,6 +47,8 @@ func (g *Gotenberg) ConvertURL(ctx context.Context, pageURL string) (io.ReadClos
 	fields := [][2]string{
 		{"url", pageURL},
 		{"waitForExpression", "window.__PRINT_READY__ === true"},
+		// The print page's @page rule sets A4, the margins and the footer; these are fallbacks.
+		{"preferCssPageSize", "true"},
 		{"paperWidth", "8.27"},
 		{"paperHeight", "11.7"},
 		{"marginTop", "0.4"},

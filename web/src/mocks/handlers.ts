@@ -192,9 +192,11 @@ function clearForeignFields(r: RecordRow) {
   if (!keep.has('details')) r.details = {}
 }
 
+const nicknameOk = (n: string | undefined) => !!n && n.trim().length > 0 && [...n.trim()].length <= 20
+
 function searchable(r: RecordRow): string {
   const captions = db.attachments.filter((a) => a.recordId === r.id).map((a) => a.caption ?? '')
-  return [r.body, r.medName ?? '', r.details.hospital ?? '', r.details.item ?? '', r.details.institution ?? '', ...captions]
+  return [r.body, r.medName ?? '', r.details.hospital ?? '', r.details.department ?? '', r.details.item ?? '', r.details.institution ?? '', ...captions]
     .join(' ')
     .toLowerCase()
 }
@@ -293,8 +295,8 @@ export const handlers = [
     '*/api/members',
     route(async ({ request }) => {
       const b = (await request.json()) as MemberCreate
-      if (!b.nickname?.trim()) return validation('请填写称呼', { nickname: 'required' })
-      if (dayjs(b.birthDate).isAfter(today())) return validation('出生日期不能晚于今天', { birthDate: 'in_future' })
+      if (!nicknameOk(b.nickname)) return validation('称呼不能为空，且不超过 20 个字', { nickname: 'invalid' })
+      if (dayjs(b.birthDate).isAfter(today()) || dayjs(b.birthDate).year() < 1900) return validation('出生日期不正确', { birthDate: 'out_of_range' })
       const row = {
         id: uuidv7(),
         nickname: b.nickname.trim(),
@@ -329,7 +331,7 @@ export const handlers = [
       const m = findMember(params.id as string)
       if (!m) return notFound('成员')
       const b = (await request.json()) as MemberPatch
-      if (b.nickname !== undefined && !b.nickname.trim()) return validation('请填写称呼', { nickname: 'required' })
+      if (b.nickname !== undefined && !nicknameOk(b.nickname)) return validation('称呼不能为空，且不超过 20 个字', { nickname: 'invalid' })
       Object.assign(m, b, { updatedAt: nowIso() })
       return HttpResponse.json(memberView(db, m))
     }),
@@ -568,7 +570,7 @@ export const handlers = [
         .filter((r) => types.length === 0 || (r.type !== null && types.includes(r.type)))
         .filter((r) => p.get('flare') !== 'true' || r.isFlare)
         .filter((r) => !p.get('from') || !dayjs(r.occurredAt).isBefore(dayjs(p.get('from'))))
-        .filter((r) => !p.get('to') || dayjs(r.occurredAt).isBefore(dayjs(p.get('to'))))
+        .filter((r) => !p.get('to') || !dayjs(r.occurredAt).isAfter(dayjs(p.get('to'))))
         .filter((r) => !q || searchable(r).includes(q))
         .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt) || b.id.localeCompare(a.id))
       const offset = Number(p.get('cursor') ?? 0)
