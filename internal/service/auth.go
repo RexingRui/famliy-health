@@ -15,6 +15,9 @@ import (
 
 const (
 	SessionTTL = 30 * 24 * time.Hour
+	// BrowserSessionTTL applies when "30 天内保持登录" is unchecked: the cookie ends with the
+	// browser and the server drops the session after this much inactivity.
+	BrowserSessionTTL = 12 * time.Hour
 	// Sliding renewal writes at most once per interval instead of on every request.
 	sessionRenewEvery = time.Hour
 )
@@ -22,12 +25,20 @@ const (
 type Me = dbgen.GetMeRow
 
 type LoginResult struct {
-	Token     string
-	ExpiresAt time.Time
-	Me        Me
+	Token      string
+	ExpiresAt  time.Time
+	Persistent bool
+	Me         Me
 }
 
-func (s *Service) Login(ctx context.Context, username, password, ip, userAgent string) (LoginResult, error) {
+func sessionTTL(persistent bool) time.Duration {
+	if persistent {
+		return SessionTTL
+	}
+	return BrowserSessionTTL
+}
+
+func (s *Service) Login(ctx context.Context, username, password string, remember bool, ip, userAgent string) (LoginResult, error) {
 	if s.limiter.Locked(ip) {
 		return LoginResult{}, errs.TooManyRequests("尝试次数过多，请 15 分钟后再试")
 	}
@@ -45,10 +56,10 @@ func (s *Service) Login(ctx context.Context, username, password, ip, userAgent s
 	if err != nil {
 		return LoginResult{}, err
 	}
-	expires := time.Now().Add(SessionTTL)
+	expires := time.Now().Add(sessionTTL(remember))
 	var me Me
 	err = s.store.WithTx(ctx, func(q *dbgen.Queries) error {
-		if err := q.InsertSession(ctx, dbgen.InsertSessionParams{ID: id, AccountID: acct.ID, ExpiresAt: expires, UserAgent: truncate(userAgent, 300)}); err != nil {
+		if err := q.InsertSession(ctx, dbgen.InsertSessionParams{ID: id, AccountID: acct.ID, ExpiresAt: expires, Persistent: remember, UserAgent: truncate(userAgent, 300)}); err != nil {
 			return err
 		}
 		if err := q.TouchAccountLogin(ctx, acct.ID); err != nil {
@@ -64,12 +75,18 @@ func (s *Service) Login(ctx context.Context, username, password, ip, userAgent s
 	if err != nil {
 		return LoginResult{}, err
 	}
-	return LoginResult{Token: token, ExpiresAt: expires, Me: me}, nil
+	return LoginResult{Token: token, ExpiresAt: expires, Persistent: remember, Me: me}, nil
 }
 
-// Authenticate resolves a session cookie. renewed is non-nil when the expiry slid forward
-// and the cookie should be re-issued.
-func (s *Service) Authenticate(ctx context.Context, token string) (p auth.Principal, renewed *time.Time, err error) {
+// Renewal is set by Authenticate when the session's expiry slid forward and the cookie
+// should be re-issued.
+type Renewal struct {
+	ExpiresAt  time.Time
+	Persistent bool
+}
+
+// Authenticate resolves a session cookie.
+func (s *Service) Authenticate(ctx context.Context, token string) (p auth.Principal, renewed *Renewal, err error) {
 	if token == "" {
 		return p, nil, errs.Unauthorized("请先登录")
 	}
@@ -83,11 +100,11 @@ func (s *Service) Authenticate(ctx context.Context, token string) (p auth.Princi
 	}
 	p = auth.Principal{AccountID: row.AccountID, FamilyID: row.FamilyID, SessionID: id}
 	if time.Since(row.LastSeenAt) > sessionRenewEvery {
-		exp := time.Now().Add(SessionTTL)
+		exp := time.Now().Add(sessionTTL(row.Persistent))
 		if err := s.store.TouchSession(ctx, dbgen.TouchSessionParams{ID: id, ExpiresAt: exp}); err != nil {
 			return p, nil, err
 		}
-		renewed = &exp
+		renewed = &Renewal{ExpiresAt: exp, Persistent: row.Persistent}
 	}
 	return p, renewed, nil
 }

@@ -27,5 +27,6 @@ describe('AppShell', () => {
     renderAt('/')
     expect(screen.getByRole('heading', { name: '家庭总览' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '待整理' })).toHaveAttribute('href', '/inbox')
+    expect(screen.queryByRole('link', { name: '记一笔' })).not.toBeInTheDocument()
   })
 })

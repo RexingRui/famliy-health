@@ -31,7 +31,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
+         * 用户名密码登录，成功后下发 Cookie hl_sid（默认 30 天，活跃时滑动续期；remember=false 时为会话 Cookie）
          * @description 同一 IP 连续失败 5 次锁定 15 分钟，锁定期间返回 429。
          */
         post: operations["login"];
@@ -212,10 +212,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 病种标签：系统预置 + 本家庭自定义 */
+        /** 本家庭的病种标签，按创建先后排序（没有系统预置，新建病程时填的病种自动加入） */
         get: operations["listDiseaseTags"];
         put?: never;
-        /** 新增自定义病种；同名已存在时返回已有标签 */
+        /** 新增病种；同名已存在时返回已有标签 */
         post: operations["createDiseaseTag"];
         delete?: never;
         options?: never;
@@ -545,6 +545,11 @@ export interface components {
         LoginRequest: {
             username: string;
             password: string;
+            /**
+             * @description 30 天内保持登录。false 时 Cookie 随浏览器关闭失效，闲置 12 小时也会过期
+             * @default true
+             */
+            remember: boolean;
         };
         Me: {
             account: components["schemas"]["Account"];
@@ -614,8 +619,6 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
-            /** @description 系统预置 */
-            preset: boolean;
         };
         DiseaseTagCreate: {
             name: string;

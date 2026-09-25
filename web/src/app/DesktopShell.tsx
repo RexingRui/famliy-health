@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react'
-import { Link, NavLink, Outlet } from 'react-router'
-import { ExportIcon, InboxIcon, MembersIcon, MicIcon, OverviewIcon } from '../components/icons'
+import { NavLink, Outlet } from 'react-router'
+import { ExportIcon, InboxIcon, MembersIcon, OverviewIcon } from '../components/icons'
 
 const navItems: { to: string; label: string; icon: ComponentType<{ size?: number }>; end?: boolean }[] = [
   { to: '/', label: '总览', icon: OverviewIcon, end: true },
@@ -13,6 +13,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? 'bg-primary-soft font-bold text-primary' : 'text-ink hover:bg-line-soft'
   }`
 
+// Recording happens on the phone only; the desktop has no 记一笔 entry.
 export function DesktopShell() {
   return (
     <div className="flex min-h-dvh">
@@ -33,13 +34,6 @@ export function DesktopShell() {
             成员
           </NavLink>
         </section>
-        <Link
-          to="/record/new"
-          className="mt-auto flex h-12 items-center justify-center gap-2 rounded-control bg-primary text-[15px] font-bold text-white"
-        >
-          <MicIcon size={20} strokeWidth={2} />
-          记一笔
-        </Link>
       </aside>
       <main className="min-w-0 flex-1 px-10 py-8">
         <Outlet />

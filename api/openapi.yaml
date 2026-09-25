@@ -53,7 +53,7 @@ paths:
     post:
       tags: [auth]
       operationId: login
-      summary: 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
+      summary: 用户名密码登录，成功后下发 Cookie hl_sid（默认 30 天，活跃时滑动续期；remember=false 时为会话 Cookie）
       description: 同一 IP 连续失败 5 次锁定 15 分钟，锁定期间返回 429。
       security: []
       requestBody:
@@ -253,7 +253,7 @@ paths:
     get:
       tags: [episodes]
       operationId: listDiseaseTags
-      summary: 病种标签：系统预置 + 本家庭自定义
+      summary: 本家庭的病种标签，按创建先后排序（没有系统预置，新建病程时填的病种自动加入）
       responses:
         "200":
           description: OK
@@ -266,7 +266,7 @@ paths:
     post:
       tags: [episodes]
       operationId: createDiseaseTag
-      summary: 新增自定义病种；同名已存在时返回已有标签
+      summary: 新增病种；同名已存在时返回已有标签
       requestBody:
         required: true
         content:
@@ -818,6 +818,10 @@ components:
       properties:
         username: { type: string, minLength: 1, maxLength: 64 }
         password: { type: string, minLength: 1, maxLength: 128 }
+        remember:
+          type: boolean
+          default: true
+          description: 30 天内保持登录。false 时 Cookie 随浏览器关闭失效，闲置 12 小时也会过期
 
     Me:
       type: object
@@ -920,11 +924,10 @@ components:
     # ---------- 病种与病程 ----------
     DiseaseTag:
       type: object
-      required: [id, name, preset]
+      required: [id, name]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        preset: { type: boolean, description: 系统预置 }
 
     DiseaseTagCreate:
       type: object

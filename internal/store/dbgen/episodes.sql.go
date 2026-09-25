@@ -134,15 +134,12 @@ func (q *Queries) EpisodeRecordStats(ctx context.Context, arg EpisodeRecordStats
 }
 
 const findDiseaseTagByName = `-- name: FindDiseaseTagByName :one
-SELECT id, family_id, name, created_at, updated_at FROM disease_tags
-WHERE name = $1 AND (family_id IS NULL OR family_id = $2)
-ORDER BY (family_id IS NOT NULL)
-LIMIT 1
+SELECT id, family_id, name, created_at, updated_at FROM disease_tags WHERE name = $1 AND family_id = $2
 `
 
 type FindDiseaseTagByNameParams struct {
 	Name     string
-	FamilyID *uuid.UUID
+	FamilyID uuid.UUID
 }
 
 func (q *Queries) FindDiseaseTagByName(ctx context.Context, arg FindDiseaseTagByNameParams) (DiseaseTag, error) {
@@ -159,12 +156,12 @@ func (q *Queries) FindDiseaseTagByName(ctx context.Context, arg FindDiseaseTagBy
 }
 
 const getDiseaseTag = `-- name: GetDiseaseTag :one
-SELECT id, family_id, name, created_at, updated_at FROM disease_tags WHERE id = $1 AND (family_id IS NULL OR family_id = $2)
+SELECT id, family_id, name, created_at, updated_at FROM disease_tags WHERE id = $1 AND family_id = $2
 `
 
 type GetDiseaseTagParams struct {
 	ID       uuid.UUID
-	FamilyID *uuid.UUID
+	FamilyID uuid.UUID
 }
 
 func (q *Queries) GetDiseaseTag(ctx context.Context, arg GetDiseaseTagParams) (DiseaseTag, error) {
@@ -264,7 +261,7 @@ INSERT INTO disease_tags (id, family_id, name) VALUES ($1, $2, $3) RETURNING id,
 
 type InsertDiseaseTagParams struct {
 	ID       uuid.UUID
-	FamilyID *uuid.UUID
+	FamilyID uuid.UUID
 	Name     string
 }
 
@@ -330,11 +327,11 @@ func (q *Queries) InsertEpisode(ctx context.Context, arg InsertEpisodeParams) (E
 
 const listDiseaseTags = `-- name: ListDiseaseTags :many
 SELECT id, family_id, name, created_at, updated_at FROM disease_tags
-WHERE family_id IS NULL OR family_id = $1
-ORDER BY (family_id IS NOT NULL), created_at, name
+WHERE family_id = $1
+ORDER BY created_at, name
 `
 
-func (q *Queries) ListDiseaseTags(ctx context.Context, familyID *uuid.UUID) ([]DiseaseTag, error) {
+func (q *Queries) ListDiseaseTags(ctx context.Context, familyID uuid.UUID) ([]DiseaseTag, error) {
 	rows, err := q.db.Query(ctx, listDiseaseTags, familyID)
 	if err != nil {
 		return nil, err

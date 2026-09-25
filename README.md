@@ -14,7 +14,7 @@
 |---|---|---|---|
 | 产品方案（MVP） | [docs/product.md](docs/product.md) | [链接](https://claude.ai/code/artifact/2cee63c4-4748-404b-b54c-fae6ba3f4f56) | 做什么：范围、概念、病程规则、字段、页面、流程、验收场景 |
 | 前后端技术方案（MVP） | [docs/tech-plan.md](docs/tech-plan.md) | [链接](https://claude.ai/code/artifact/6b860948-4fcd-4a17-8cd3-67fbcd291543) | 怎么做：技术栈、架构、数据模型、API、关键流程、部署、里程碑 |
-| 设计稿 | [docs/design.md](docs/design.md)（要点） | [链接](https://claude.ai/code/artifact/181d5e62-5cf3-4c2e-b088-7cdd0203ca67) | 长什么样：10 个画板、颜色、字体、尺寸 |
+| 设计稿 | [docs/design.md](docs/design.md)（要点） | [链接](https://claude.ai/artifact/3yiHHtmFVgHqKUsKhVLZjk) | 长什么样：14 个画板、颜色、字体、尺寸 |
 
 ## 产品速览
 
@@ -127,10 +127,10 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 
 | 分组 | 接口 | 要点 |
 |---|---|---|
-| 账号 | `POST /auth/login`、`POST /auth/logout`、`GET /me` | Cookie `hl_sid`（Path 为部署前缀）30 天滑动续期；同 IP 连续失败 5 次锁 15 分钟 |
+| 账号 | `POST /auth/login`、`POST /auth/logout`、`GET /me` | Cookie `hl_sid`（Path 为部署前缀）30 天滑动续期；登录时 `remember=false` 则为会话 Cookie、闲置 12 小时过期；同 IP 连续失败 5 次锁 15 分钟 |
 | 首页 | `GET /home` | 每个成员：未结束病程（最新体温、上次用药、本周日历）、最近 4 条记录、近一年病程数；待整理数量 |
 | 成员 | `/members` 增删改查、`/archive`、`/unarchive`、`/by-disease`、`/calendar` | 删除需 `confirm=true`，文件由后台任务清理 |
-| 病种 | `GET/POST /disease-tags` | 预置 + 自定义，同名返回已有 |
+| 病种 | `GET/POST /disease-tags` | 只有本家庭的病种，没有预置；新建病程时填的病种自动加入；同名返回已有 |
 | 病程 | `/episodes` 增删改查、`/calendar`、`/trend` | 状态随类型校验；短期可转长期；病种变了、名称仍是默认名时自动改名；删除后记录回到待整理 |
 | 记录 | `GET /records`、`PUT/GET/PATCH/DELETE /records/{id}`、`POST /records/assign`、`GET /medications/last` | PUT 幂等；可随记录新建病程；类型与字段不匹配返回 422；游标分页；搜索覆盖正文、语音补充文字、药名、医院 |
 | 附件 | `PUT /attachments/{id}`（multipart）、`PATCH/DELETE`、`GET /file`、`POST /reprocess` | 按文件头识别格式；照片≤9 张/条；语音异步转 m4a；文件支持 Range |
@@ -192,6 +192,9 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 | — | 新增 `PRINT_BASE_URL` | Gotenberg 打开打印页的地址（生产 `http://app:8080`，本地为 Vite） |
 | 自建 Gotenberg 镜像装中文字体 | 直接用官方镜像 | 官方镜像已含 `fonts-noto-cjk`，省掉服务器上的 apt |
 | 一次性打印令牌 | 5 分钟有效的无状态 HMAC 令牌，限定家庭、报告和成员 | 与方案“服务端不存状态”一致，只在有效期内可复用 |
+| 预置病种列表 | 不预置，病种全部由家庭自己在新建病程时填写 | 预置名单用处不大，确定删除；迁移 `00004` 删掉预置标签，已被病程用到的转成该家庭自己的标签 |
+| 电脑端记一笔用弹窗 | 电脑端不支持记录，没有“记一笔”入口 | 记录只在手机上做；电脑端改记录用待整理的编辑面板 |
+| 登录状态固定 30 天 | 登录页“30 天内保持登录”默认勾选；不勾选时为会话 Cookie，服务端闲置 12 小时过期 | 设计稿登录页有这个选项 |
 | 接口清单 | 新增 `GET /records/{id}`、`GET /members/{id}/calendar`、`POST /attachments/{id}/reprocess` | 记录详情页、成员主页日历、转码失败“重新处理”按钮 |
 | 照片 `storage_key` 为处理后文件 | 照片存缩略图的路径，原图在 `original_key` | 照片前端已压缩，处理后的产物就是缩略图 |
 | store 层 testcontainers | 已有 PostgreSQL + 独立 schema | 见上文“测试” |
@@ -212,10 +215,10 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 ## 待定事项
 
 - [x] ~~服务器与域名~~：与 crab 共用服务器和域名，路径 `/health/`
-- [ ] 预置病种列表：在技术方案示例的基础上补了常见病，先写入 17 个（`db/migrations/00002_preset_disease_tags.sql`），需要增删就加一个新迁移
+- [x] ~~预置病种列表~~：不预置，见“与方案的差异”
 - [ ] 服务器上线：按 [deploy/SERVER_STEPS.md](deploy/SERVER_STEPS.md) 部署 healthlog、建立独立网关（crab 不用改代码、不用重新部署）
-- [ ] 设计稿补充：登录页、记录详情与编辑页、手机端成员列表
-- [ ] 电脑端“记一笔”是否用弹窗
+- [x] ~~设计稿补充~~：已补登录（手机 / 电脑）、记录详情、编辑记录；手机端成员列表就是首页头像栏
+- [x] ~~电脑端“记一笔”是否用弹窗~~：电脑端不支持记录，已移除入口
 - [ ] 展示字体 ZCOOL XiaoWei 是否自托管子集
 
 ## 部署

@@ -1,16 +1,13 @@
 -- name: ListDiseaseTags :many
 SELECT * FROM disease_tags
-WHERE family_id IS NULL OR family_id = @family_id
-ORDER BY (family_id IS NOT NULL), created_at, name;
+WHERE family_id = @family_id
+ORDER BY created_at, name;
 
 -- name: GetDiseaseTag :one
-SELECT * FROM disease_tags WHERE id = @id AND (family_id IS NULL OR family_id = @family_id);
+SELECT * FROM disease_tags WHERE id = @id AND family_id = @family_id;
 
 -- name: FindDiseaseTagByName :one
-SELECT * FROM disease_tags
-WHERE name = @name AND (family_id IS NULL OR family_id = @family_id)
-ORDER BY (family_id IS NOT NULL)
-LIMIT 1;
+SELECT * FROM disease_tags WHERE name = @name AND family_id = @family_id;
 
 -- name: InsertDiseaseTag :one
 INSERT INTO disease_tags (id, family_id, name) VALUES (@id, @family_id, @name) RETURNING *;

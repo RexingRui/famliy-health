@@ -41,6 +41,7 @@ type env struct {
 	srv    *httptest.Server
 	svc    *service.Service
 	st     *store.Store
+	pool   *pgxpool.Pool
 	runner *jobs.Runner
 	files  *storage.Local
 	base   string
@@ -87,7 +88,7 @@ func newEnvAt(t *testing.T, base string) *env {
 		t.Fatal(err)
 	}
 
-	e := &env{t: t, st: store.New(pool), base: base}
+	e := &env{t: t, st: store.New(pool), pool: pool, base: base}
 	e.files, err = storage.NewLocal(t.TempDir())
 	if err != nil {
 		t.Fatal(err)

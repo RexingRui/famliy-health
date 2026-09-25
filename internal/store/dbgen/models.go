@@ -625,7 +625,7 @@ type Attachment struct {
 
 type DiseaseTag struct {
 	ID        uuid.UUID
-	FamilyID  *uuid.UUID
+	FamilyID  uuid.UUID
 	Name      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -719,4 +719,5 @@ type Session struct {
 	UserAgent  string
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+	Persistent bool
 }

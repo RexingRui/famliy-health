@@ -26,13 +26,25 @@ func TestAuth(t *testing.T) {
 	anon.do("POST", "/api/auth/login", map[string]string{"username": "nobody", "password": "wrong-pass"}).expect(401)
 
 	c := anon
-	c.do("POST", "/api/auth/login", map[string]string{"username": "mom", "password": "password-123"}).expect(200)
+	res := c.do("POST", "/api/auth/login", map[string]string{"username": "mom", "password": "password-123"}).expect(200)
+	must(t, strings.Contains(res.header.Get("Set-Cookie"), "Max-Age="), "remember defaults to a 30-day cookie: %s", res.header.Get("Set-Cookie"))
 	var me api.Me
 	c.do("GET", "/api/me", nil).expect(200).decode(&me)
 	must(t, me.Account.Username == "mom" && me.Family.Name == "测试家庭", "me = %+v", me)
 
 	c.do("POST", "/api/auth/logout", nil).expect(204)
 	c.do("GET", "/api/me", nil).expect(401)
+
+	// Unchecked "30 天内保持登录": a browser-session cookie backed by a short server-side session.
+	res = c.do("POST", "/api/auth/login", map[string]any{"username": "mom", "password": "password-123", "remember": false}).expect(200)
+	cookie := res.header.Get("Set-Cookie")
+	must(t, strings.HasPrefix(cookie, "hl_sid=") && !strings.Contains(cookie, "Max-Age=") && !strings.Contains(cookie, "Expires="), "session cookie = %s", cookie)
+	c.do("GET", "/api/me", nil).expect(200)
+	var hours float64
+	if err := e.pool.QueryRow(t.Context(), "SELECT extract(epoch FROM max(expires_at) - now()) / 3600 FROM sessions WHERE NOT persistent").Scan(&hours); err != nil {
+		t.Fatal(err)
+	}
+	must(t, hours > 11.9 && hours <= 12, "browser session ttl = %.2fh", hours)
 
 	// Writes without an Origin header are rejected (CSRF).
 	c.raw("POST", "/api/auth/login", strings.NewReader(`{}`), "application/json", map[string]string{"Origin": "https://evil.example"}).expect(403)
@@ -92,9 +104,10 @@ func TestEpisodeLifecycle(t *testing.T) {
 	month := time.Now().In(time.FixedZone("CST", 8*3600)).Format("2006-01")
 	must(t, ep.Name == "发烧 · "+month && ep.Status == api.EpisodeStatusActive && ep.Open && ep.Days == 1, "episode = %+v", ep)
 
+	// No presets: the family's tags are the ones its episodes introduced.
 	var tags []api.DiseaseTag
 	c.do("GET", "/api/disease-tags", nil).expect(200).decode(&tags)
-	must(t, len(tags) > 5, "preset tags missing")
+	must(t, len(tags) == 1 && tags[0].Name == "发烧", "tags = %+v", tags)
 
 	// Diagnosis renames a still-default episode name.
 	c.do("PATCH", "/api/episodes/"+ep.Id.String(), map[string]any{"diseaseName": "支原体肺炎"}).expect(200).decode(&ep)
