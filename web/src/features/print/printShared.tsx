@@ -3,16 +3,27 @@ import type { Member } from '../../api/types'
 import { formatDateFull } from '../../lib/time/format'
 import { memberBasics } from './printData'
 
+const FOOTER_NOTE = '家庭自行记录，仅供就诊时参考，不作为诊断依据'
+// Margin boxes take no custom properties; these are the ink-muted and line colors.
+const MARGIN_BOX = 'font-size: 8pt; color: #4e5d5a; vertical-align: top; padding-top: 3mm; border-top: 0.5pt solid #d5dcd9;'
+
 /** A4 sheet: 210 mm wide on screen, page-sized margins in print. */
 export function PrintSheet({ children }: { children: ReactNode }) {
   return (
     <div className="print-root min-h-dvh bg-white text-[10.5pt] leading-normal text-ink">
       <style>{`
-        @page { size: A4; margin: 14mm 13mm 16mm; }
+        @page {
+          size: A4;
+          margin: 14mm 13mm 16mm;
+          /* The footer lives in each page's bottom margin, so it repeats without covering content. */
+          @bottom-left { content: "${FOOTER_NOTE}"; ${MARGIN_BOX} }
+          @bottom-right { content: "家庭健康管理 · 第 " counter(page) " / " counter(pages) " 页"; ${MARGIN_BOX} }
+        }
         @media print {
           html, body { background: #fff !important; }
+          .print-root { min-height: 0 !important; }
           .print-page { width: auto !important; padding: 0 !important; box-shadow: none !important; }
-          .print-footer { position: fixed; bottom: -9mm; left: 0; right: 0; }
+          .print-footer { display: none !important; }
           .avoid-break { break-inside: avoid; }
           .page-break { break-before: page; }
         }
@@ -63,10 +74,11 @@ export function PrintSection({ title, children, className }: { title: string; ch
   )
 }
 
+/** On-screen footer (export preview); in print the @page margin boxes above take over. */
 export function PrintFooter() {
   return (
     <footer className="print-footer mt-auto flex justify-between border-t border-line pt-2 text-[8pt] text-ink-muted">
-      <span>家庭自行记录，仅供就诊时参考，不作为诊断依据</span>
+      <span>{FOOTER_NOTE}</span>
       <span>家庭健康管理</span>
     </footer>
   )

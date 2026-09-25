@@ -16,6 +16,7 @@ import { recordSummary } from '../../lib/record'
 import { PendingUploadsBanner } from '../record/PendingUploadsBanner'
 import { Timeline } from '../record/RecordCard'
 import { EpisodeCard } from './EpisodeCard'
+import { ArchivedMembers } from '../member/ArchivedMembers'
 
 /** One route, two layouts: the phone home page and the desktop family overview. */
 export function HomePage() {
@@ -81,6 +82,7 @@ function MobileHome({ home }: { home: Home }) {
               添加成员
             </Link>
           </EmptyState>
+          <ArchivedMembers className="justify-center pt-4" />
         </div>
       ) : (
         <>
@@ -107,6 +109,7 @@ function MobileHome({ home }: { home: Home }) {
               <span className="text-sm">添加</span>
             </Link>
           </nav>
+          <ArchivedMembers className="px-5 pt-1" />
 
           <main className="flex flex-col gap-3 px-4 pt-3">
             <div className="flex items-baseline justify-between px-1">

@@ -1,7 +1,9 @@
 package httpx
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -31,6 +33,11 @@ func requestErrorHandler(w http.ResponseWriter, _ *http.Request, err error) {
 // responseErrorHandler maps business errors to their status; anything else is a 500 whose
 // details only go to the log.
 func responseErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	// The client went away (closed the page, or a newer query replaced this one): nobody reads
+	// the response and it is not a server fault, so don't log it as one.
+	if errors.Is(err, context.Canceled) && r.Context().Err() != nil {
+		return
+	}
 	if e, ok := errs.As(err); ok {
 		if e.Status >= 500 || e.Err != nil {
 			slog.ErrorContext(r.Context(), "request failed", "path", r.URL.Path, "code", e.Code, "err", err)
