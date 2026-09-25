@@ -1,23 +1,25 @@
-import { NavLink, Outlet } from 'react-router'
+import { NavLink, Outlet, useLocation } from 'react-router'
 import { HomeIcon, MembersIcon, MicIcon } from '../components/icons'
+import { cx } from '../lib/cx'
 import { useRouteHandle } from './routeHandle'
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
-  `flex w-16 flex-col items-center gap-[3px] text-xs ${isActive ? 'font-medium text-primary' : 'text-ink-muted'}`
+  cx('flex w-16 flex-col items-center gap-[3px] text-xs', isActive ? 'font-medium text-primary' : 'text-ink-muted')
 
 export function MobileShell() {
   const { hideMobileTabBar } = useRouteHandle()
+  const { pathname } = useLocation()
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <main className="flex-1">
+      <main className="flex flex-1 flex-col">
         <Outlet />
       </main>
 
       {!hideMobileTabBar && (
         <nav
           aria-label="主导航"
-          className="sticky bottom-0 flex h-[84px] items-end justify-around border-t border-line bg-surface px-7 pb-[max(22px,env(safe-area-inset-bottom))]"
+          className="sticky bottom-0 z-20 flex h-[84px] items-end justify-around border-t border-line bg-surface px-7 pb-[max(22px,env(safe-area-inset-bottom))]"
         >
           <NavLink to="/" end className={tabClass}>
             <HomeIcon />
@@ -29,7 +31,7 @@ export function MobileShell() {
             </span>
             记一笔
           </NavLink>
-          <NavLink to="/members" className={tabClass}>
+          <NavLink to="/members" className={() => tabClass({ isActive: pathname.startsWith('/members') })}>
             <MembersIcon />
             成员
           </NavLink>
