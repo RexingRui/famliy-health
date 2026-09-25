@@ -4,7 +4,7 @@
 
 家庭自用的病程记录本，不做问诊，不给医疗建议。核心价值是：就诊时病史讲得清，复诊时有据可查，报销时材料齐全。
 
-> 当前状态：**后端 MVP 接口已完成**（登录、成员、病程、记录、附件与语音转码、浏览视图、PDF 导出、备份与部署脚本）；**前端页面已完成**，目前对着浏览器内的 mock 后端开发（`npm run dev:mock`），还没和真实后端联调，见「前后端联调」。到上线为止的全部工作按 [docs/launch-todo.md](docs/launch-todo.md) 推进。
+> 当前状态：**后端 MVP 接口已完成**（登录、成员、病程、记录、附件与语音转码、浏览视图、PDF 导出、备份与部署脚本）；**前端页面已完成**，目前对着浏览器内的 mock 后端开发（`npm run dev:mock`），还没和真实后端联调，见「前后端联调」。到上线为止的全部工作按 [上线清单](https://claude.ai/artifact/4H5RhLdHnzSyxDtMWQgozj) 推进。
 
 ## 文档
 
@@ -253,7 +253,7 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 与 crab 共用一台服务器和域名，访问地址是 `https://<域名>/health/`。80/443 由服务器上独立的网关 Caddy（`/opt/gateway`）按路径转发，
 healthlog 只把端口绑在 `127.0.0.1:8081`，不依赖 crab 的任何东西。
 
-- 上线总清单（联调、部署、真机验证、启用）：[docs/launch-todo.md](docs/launch-todo.md)
+- 上线总清单（联调、部署、真机验证、启用）：[上线清单](https://claude.ai/artifact/4H5RhLdHnzSyxDtMWQgozj)
 - 第一次上线：[deploy/SERVER_STEPS.md](deploy/SERVER_STEPS.md)（逐步操作清单，含网关配置和回滚）
 - 架构、踩坑记录、日常运维、备份：[deploy/DEPLOY.md](deploy/DEPLOY.md)
 - 日常发布：服务器上 `cd /opt/healthlog && ./scripts/deploy.sh`（备份 → 拉代码 → 构建 → 替换 → 自检，失败自动回滚）
