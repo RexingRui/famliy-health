@@ -1,25 +1,39 @@
 openapi: 3.0.3
 info:
   title: 家庭健康管理 API
-  version: 0.1.0
+  version: 0.2.0
   description: |
     接口契约的唯一事实来源。Go 服务端接口（oapi-codegen）和前端 TS 类型（openapi-typescript）
     都由本文件生成，修改后执行 `make gen`。
 
     约定（详见 docs/tech-plan.md「API 设计」）：
     - 业务接口统一前缀 `/api`，JSON 字段用 camelCase。
-    - 时间用 ISO 8601 带时区偏移（2026-09-24T21:30:00+08:00），纯日期用 2026-09-24。
-    - 记录和附件用 `PUT /{id}` 幂等创建，ID 由前端生成（UUIDv7）。
+    - 时间用 ISO 8601 带时区偏移（2026-09-24T21:30:00+08:00），纯日期用 2026-09-24；按天统计以 Asia/Shanghai 为准。
+    - 记录和附件用 `PUT /{id}` 幂等创建，ID 由前端生成（UUIDv7）：首次创建返回 201，重复提交返回 200 和已有资源。
+    - PATCH 只改请求里出现的字段；可清空的字段传 null 表示清空。
     - 列表用游标分页，默认每页 50 条。
-    - 鉴权用 Cookie `sid`；写请求校验 Origin 头。
+    - 鉴权用 Cookie `hl_sid`（登录接口下发，Path 为部署前缀）；所有写请求校验 Origin 头。
+    - 部署在路径前缀下（生产为 `/health`，与其他应用共用域名）：下文路径都相对于该前缀，
+      如 `/api/me` 实际为 `/health/api/me`；响应里返回的 URL（附件、头像）已包含前缀，可直接使用。
     - 错误统一返回 Error 结构。
 servers:
   - url: /
 security:
   - cookieAuth: []
+
+tags:
+  - name: system
+  - name: auth
+  - name: members
+  - name: episodes
+  - name: records
+  - name: attachments
+  - name: reports
+
 paths:
   /healthz:
     get:
+      tags: [system]
       operationId: healthz
       summary: 健康检查（数据库、Gotenberg 连通性），供外部拨测使用
       security: []
@@ -28,20 +42,699 @@ paths:
           description: 全部依赖正常
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Health"
+              schema: { $ref: "#/components/schemas/Health" }
         "503":
           description: 至少一个依赖异常
           content:
             application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
+      description: 同一 IP 连续失败 5 次锁定 15 分钟，锁定期间返回 429。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: 注销当前会话；all=true 注销该账号的全部会话
+      parameters:
+        - name: all
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "204": { description: 已注销 }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/me:
+    get:
+      tags: [auth]
+      operationId: getMe
+      summary: 当前账号和家庭
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/home:
+    get:
+      tags: [members]
+      operationId: getHome
+      summary: 首页与家庭总览的聚合数据
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Home" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/members:
+    get:
+      tags: [members]
+      operationId: listMembers
+      parameters:
+        - name: includeArchived
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: 按 sortOrder 排序
+          content:
+            application/json:
               schema:
-                $ref: "#/components/schemas/Health"
+                type: array
+                items: { $ref: "#/components/schemas/Member" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      tags: [members]
+      operationId: createMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MemberCreate" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/members/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [members]
+      operationId: getMember
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [members]
+      operationId: updateMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MemberPatch" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [members]
+      operationId: deleteMember
+      summary: 删除成员及其全部病程、记录和附件（不可恢复，需带 confirm=true）
+      parameters:
+        - name: confirm
+          in: query
+          required: true
+          schema: { type: boolean }
+      responses:
+        "204": { description: 已删除 }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/members/{id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [members]
+      operationId: archiveMember
+      summary: 归档：数据保留，不再出现在快速切换中
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/members/{id}/unarchive:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [members]
+      operationId: unarchiveMember
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/members/{id}/by-disease:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [members]
+      operationId: getMemberByDisease
+      summary: 成员主页“按病种”视图：同一病种的全部病程及汇总
+      parameters:
+        - name: range
+          in: query
+          schema:
+            type: string
+            enum: [1y, 3y, all]
+            default: 1y
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ByDisease" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/members/{id}/calendar:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+      - $ref: "#/components/parameters/Month"
+    get:
+      tags: [members]
+      operationId: getMemberCalendar
+      summary: 成员一个月内每天各类型的记录数（跨病程）
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Calendar" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/disease-tags:
+    get:
+      tags: [episodes]
+      operationId: listDiseaseTags
+      summary: 病种标签：系统预置 + 本家庭自定义
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DiseaseTag" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      tags: [episodes]
+      operationId: createDiseaseTag
+      summary: 新增自定义病种；同名已存在时返回已有标签
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DiseaseTagCreate" }
+      responses:
+        "200":
+          description: 已存在
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DiseaseTag" }
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DiseaseTag" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/episodes:
+    get:
+      tags: [episodes]
+      operationId: listEpisodes
+      summary: 病程列表，按最近一条记录时间倒序
+      parameters:
+        - name: memberId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: open
+          in: query
+          description: true 只返回未结束的（进行中、治疗中、稳定期）
+          schema: { type: boolean }
+        - name: diseaseTagId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: kind
+          in: query
+          schema: { $ref: "#/components/schemas/EpisodeKind" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Episode" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      tags: [episodes]
+      operationId: createEpisode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EpisodeCreate" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Episode" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/episodes/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [episodes]
+      operationId: getEpisode
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Episode" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [episodes]
+      operationId: updateEpisode
+      summary: 编辑病程与切换状态；短期可转长期（进行中→治疗中，已康复→稳定期）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EpisodePatch" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Episode" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [episodes]
+      operationId: deleteEpisode
+      summary: 删除病程，其中的记录退回待整理
+      responses:
+        "204": { description: 已删除 }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/episodes/{id}/calendar:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+      - $ref: "#/components/parameters/Month"
+    get:
+      tags: [episodes]
+      operationId: getEpisodeCalendar
+      summary: 病程一个月内每天各类型的记录数和最高症状程度
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Calendar" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/episodes/{id}/trend:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [episodes]
+      operationId: getEpisodeTrend
+      summary: 体温和症状程度的时间序列
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trend" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/records:
+    get:
+      tags: [records]
+      operationId: listRecords
+      summary: 统一的记录查询，覆盖时间线、待整理、按类型筛选和搜索；按发生时间倒序
+      parameters:
+        - name: memberId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: episodeId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: inbox
+          in: query
+          description: true 只返回未归入病程的记录
+          schema: { type: boolean }
+        - name: type
+          in: query
+          description: 可多选，如 type=visit&type=medication
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: "#/components/schemas/RecordType" }
+        - name: flare
+          in: query
+          description: true 只返回发作记录
+          schema: { type: boolean }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: q
+          in: query
+          description: 搜索文字内容、语音补充文字、药名、医院名称
+          schema: { type: string, maxLength: 100 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecordPage" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/records/assign:
+    post:
+      tags: [records]
+      operationId: assignRecords
+      summary: 批量归入病程；episodeId 为 null 表示移回待整理；可带 newEpisode 同时新建
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssignRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignResult" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/records/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [records]
+      operationId: getRecord
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Record" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      tags: [records]
+      operationId: putRecord
+      summary: 创建记录（幂等）。ID 已存在时直接返回已有记录，不做修改
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecordCreate" }
+      responses:
+        "200":
+          description: 已存在
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Record" }
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Record" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [records]
+      operationId: updateRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecordPatch" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Record" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [records]
+      operationId: deleteRecord
+      summary: 删除记录及其附件
+      responses:
+        "204": { description: 已删除 }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/medications/last:
+    get:
+      tags: [records]
+      operationId: getLastMedication
+      summary: 同一成员同一种药上次的服用时间，用于“上次服用”提示
+      parameters:
+        - name: memberId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: medName
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LastMedication" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/attachments/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    put:
+      tags: [attachments]
+      operationId: uploadAttachment
+      summary: 上传附件（幂等）。照片和头像须为 JPEG；语音上传后异步转码
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: "#/components/schemas/AttachmentUpload" }
+      responses:
+        "200":
+          description: 已存在
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Attachment" }
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Attachment" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [attachments]
+      operationId: updateAttachment
+      summary: 修改语音补充文字或顺序
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AttachmentPatch" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Attachment" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [attachments]
+      operationId: deleteAttachment
+      responses:
+        "204": { description: 已删除 }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/attachments/{id}/file:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [attachments]
+      operationId: getAttachmentFile
+      summary: 读取附件文件，支持 Range（语音可拖动）
+      description: |
+        登录态或打印令牌（token）二选一。语音默认返回转码后的 m4a，未转码完成时返回原始文件。
+      security: []
+      parameters:
+        - name: variant
+          in: query
+          schema:
+            type: string
+            enum: [default, thumb, original]
+            default: default
+        - name: token
+          in: query
+          description: 打印令牌，供 Gotenberg 渲染报告时取图
+          schema: { type: string }
+      responses:
+        "200":
+          description: 文件内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "206":
+          description: 部分内容（Range）
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/attachments/{id}/reprocess:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [attachments]
+      operationId: reprocessAttachment
+      summary: 转码失败的语音重新处理
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Attachment" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/exports:
+    post:
+      tags: [reports]
+      operationId: createExport
+      summary: 生成 PDF 报告，同步返回文件
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "200":
+          description: PDF 文件
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Error" }
+
+  /api/print-data:
+    get:
+      tags: [reports]
+      operationId: getPrintData
+      summary: 打印页取数
+      description: |
+        Gotenberg 渲染时带一次性打印令牌（token）；导出页预览和浏览器打印凭登录态，并用 type/id/from/to/photos 指定范围。
+      security: []
+      parameters:
+        - name: token
+          in: query
+          schema: { type: string }
+        - name: type
+          in: query
+          schema: { $ref: "#/components/schemas/ReportType" }
+        - name: id
+          in: query
+          description: 病程报告为病程 ID，成员健康档案为成员 ID
+          schema: { type: string, format: uuid }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+        - name: photos
+          in: query
+          schema: { $ref: "#/components/schemas/PhotoOption" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrintData" }
+        default: { $ref: "#/components/responses/Error" }
+
 components:
   securitySchemes:
     cookieAuth:
       type: apiKey
       in: cookie
-      name: sid
+      name: hl_sid
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Month:
+      name: month
+      in: query
+      required: true
+      description: 年月，如 2026-09
+      schema:
+        type: string
+        pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+
+  responses:
+    Error:
+      description: 错误（400/401/403/404/409/413/422/429/500）
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
   schemas:
     Health:
       type: object
@@ -53,8 +746,8 @@ components:
         checks:
           type: object
           description: 各依赖的检查结果，值为 ok 或错误说明
-          additionalProperties:
-            type: string
+          additionalProperties: { type: string }
+
     Error:
       type: object
       required: [error]
@@ -74,7 +767,650 @@ components:
             fields:
               type: object
               description: 字段级错误，键为字段名
-              additionalProperties:
-                type: string
-              example:
-                temperature: out_of_range
+              additionalProperties: { type: string }
+              example: { temperature: out_of_range }
+
+    # ---------- 枚举 ----------
+    MemberRelation:
+      type: string
+      enum: [self, spouse, child, parent, grandparent, other]
+    Gender:
+      type: string
+      enum: [male, female]
+    BloodType:
+      type: string
+      enum: [A, B, AB, O, unknown]
+    EpisodeKind:
+      type: string
+      description: short 短期病程，long 长期病程
+      enum: [short, long]
+    EpisodeStatus:
+      type: string
+      description: 短期：active 进行中、recovered 已康复；长期：treating 治疗中、stable 稳定期、ended 已结束
+      enum: [active, recovered, treating, stable, ended]
+    RecordType:
+      type: string
+      enum: [symptom, temperature, medication, visit, treatment, exam, other]
+    MedUnit:
+      type: string
+      enum: [ml, 片, 粒, 袋]
+      x-enum-varnames: [Ml, Tablet, Capsule, Sachet]
+    AttachmentKind:
+      type: string
+      enum: [photo, audio, avatar]
+    AttachmentStatus:
+      type: string
+      description: 照片和头像上传后即为 ready；语音为 processing，转码完成后 ready，三次失败为 failed
+      enum: [pending, processing, ready, failed]
+    ReportType:
+      type: string
+      description: episode 病程报告，member 成员健康档案
+      enum: [episode, member]
+    PhotoOption:
+      type: string
+      description: none 不附带，thumbnail 附缩略图，appendix 作为附录附原图
+      enum: [none, thumbnail, appendix]
+
+    # ---------- 账号 ----------
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 64 }
+        password: { type: string, minLength: 1, maxLength: 128 }
+
+    Me:
+      type: object
+      required: [account, family]
+      properties:
+        account: { $ref: "#/components/schemas/Account" }
+        family: { $ref: "#/components/schemas/Family" }
+
+    Account:
+      type: object
+      required: [id, username, displayName]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        displayName: { type: string }
+
+    Family:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    # ---------- 成员 ----------
+    Member:
+      type: object
+      required: [id, nickname, relation, gender, birthDate, avatarId, avatarUrl, allergies, bloodType, notes, sortOrder, archived, longEpisodes, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        nickname: { type: string }
+        relation: { $ref: "#/components/schemas/MemberRelation" }
+        gender: { $ref: "#/components/schemas/Gender" }
+        birthDate: { type: string, format: date }
+        avatarId: { type: string, format: uuid, nullable: true }
+        avatarUrl: { type: string, nullable: true }
+        allergies: { type: string, nullable: true }
+        bloodType:
+          allOf: [{ $ref: "#/components/schemas/BloodType" }]
+          nullable: true
+        notes: { type: string, nullable: true }
+        sortOrder: { type: integer }
+        archived: { type: boolean }
+        longEpisodes:
+          description: 该成员的长期病程（长期疾病由此汇总显示）
+          type: array
+          items: { $ref: "#/components/schemas/EpisodeRef" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    MemberCreate:
+      type: object
+      required: [nickname, relation, gender, birthDate]
+      properties:
+        nickname: { type: string, minLength: 1, maxLength: 20 }
+        relation: { $ref: "#/components/schemas/MemberRelation" }
+        gender: { $ref: "#/components/schemas/Gender" }
+        birthDate: { type: string, format: date }
+        avatarId: { type: string, format: uuid }
+        allergies: { type: string, maxLength: 500 }
+        bloodType: { $ref: "#/components/schemas/BloodType" }
+        notes: { type: string, maxLength: 1000 }
+
+    MemberPatch:
+      type: object
+      properties:
+        nickname: { type: string, minLength: 1, maxLength: 20 }
+        relation: { $ref: "#/components/schemas/MemberRelation" }
+        gender: { $ref: "#/components/schemas/Gender" }
+        birthDate: { type: string, format: date }
+        avatarId:
+          type: string
+          format: uuid
+          nullable: true
+          x-go-type: nullable.Nullable[openapi_types.UUID]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+        allergies:
+          type: string
+          maxLength: 500
+          nullable: true
+          x-go-type: nullable.Nullable[string]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+        bloodType:
+          type: string
+          enum: [A, B, AB, O, unknown]
+          nullable: true
+          x-go-type: nullable.Nullable[BloodType]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+        notes:
+          type: string
+          maxLength: 1000
+          nullable: true
+          x-go-type: nullable.Nullable[string]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+        sortOrder: { type: integer }
+
+    # ---------- 病种与病程 ----------
+    DiseaseTag:
+      type: object
+      required: [id, name, preset]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        preset: { type: boolean, description: 系统预置 }
+
+    DiseaseTagCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 30 }
+
+    EpisodeRef:
+      type: object
+      required: [id, name, diseaseName, kind, status]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        diseaseName: { type: string }
+        kind: { $ref: "#/components/schemas/EpisodeKind" }
+        status: { $ref: "#/components/schemas/EpisodeStatus" }
+
+    Episode:
+      type: object
+      required: [id, memberId, diseaseTagId, diseaseName, name, kind, status, open, startedOn, endedOn, days, recordCount, lastRecordAt, costTotalCents, suggestRecovered, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        memberId: { type: string, format: uuid }
+        diseaseTagId: { type: string, format: uuid }
+        diseaseName: { type: string }
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/EpisodeKind" }
+        status: { $ref: "#/components/schemas/EpisodeStatus" }
+        open: { type: boolean, description: 未结束（进行中、治疗中、稳定期） }
+        startedOn: { type: string, format: date }
+        endedOn: { type: string, format: date, nullable: true }
+        days: { type: integer, description: 第几天（未结束）或共持续几天（已结束） }
+        recordCount: { type: integer }
+        lastRecordAt: { type: string, format: date-time, nullable: true }
+        costTotalCents: { type: integer, description: 就诊与治疗费用合计，单位分 }
+        suggestRecovered:
+          type: boolean
+          description: 短期病程超过 14 天没有新记录，打开时提示“是否已康复”
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    NewEpisode:
+      type: object
+      description: 随记录或批量归入一起新建病程；成员取自记录。diseaseTagId 与 diseaseName 二选一
+      required: [kind]
+      properties:
+        diseaseTagId: { type: string, format: uuid }
+        diseaseName: { type: string, minLength: 1, maxLength: 30 }
+        name: { type: string, maxLength: 50, description: 为空时按规则生成：短期“病种 · 年-月”，长期“病种” }
+        kind: { $ref: "#/components/schemas/EpisodeKind" }
+        startedOn: { type: string, format: date, description: 默认今天 }
+
+    EpisodeCreate:
+      type: object
+      required: [memberId, kind]
+      properties:
+        memberId: { type: string, format: uuid }
+        diseaseTagId: { type: string, format: uuid }
+        diseaseName: { type: string, minLength: 1, maxLength: 30 }
+        name: { type: string, maxLength: 50 }
+        kind: { $ref: "#/components/schemas/EpisodeKind" }
+        status: { $ref: "#/components/schemas/EpisodeStatus" }
+        startedOn: { type: string, format: date }
+        endedOn: { type: string, format: date }
+
+    EpisodePatch:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 50 }
+        diseaseTagId: { type: string, format: uuid }
+        diseaseName: { type: string, minLength: 1, maxLength: 30 }
+        kind: { $ref: "#/components/schemas/EpisodeKind" }
+        status: { $ref: "#/components/schemas/EpisodeStatus" }
+        startedOn: { type: string, format: date }
+        endedOn:
+          type: string
+          format: date
+          nullable: true
+          x-go-type: nullable.Nullable[openapi_types.Date]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+
+    # ---------- 记录 ----------
+    RecordDetails:
+      type: object
+      description: 就诊：hospital、department、doctor；治疗：item、institution；检查：item
+      properties:
+        hospital: { type: string, maxLength: 100 }
+        department: { type: string, maxLength: 50 }
+        doctor: { type: string, maxLength: 50 }
+        item: { type: string, maxLength: 100 }
+        institution: { type: string, maxLength: 100 }
+
+    Record:
+      type: object
+      required: [id, memberId, episodeId, type, occurredAt, createdAt, updatedAt, backfilled, body, isFlare, severity, temperature, medName, medDose, medUnit, costCents, details, attachments]
+      properties:
+        id: { type: string, format: uuid }
+        memberId: { type: string, format: uuid }
+        episodeId: { type: string, format: uuid, nullable: true }
+        type:
+          allOf: [{ $ref: "#/components/schemas/RecordType" }]
+          nullable: true
+        occurredAt: { type: string, format: date-time, description: 发生时间 }
+        createdAt: { type: string, format: date-time, description: 录入时间 }
+        updatedAt: { type: string, format: date-time }
+        backfilled: { type: boolean, description: 发生与录入相差超过 1 小时，显示“补录” }
+        body: { type: string }
+        isFlare: { type: boolean }
+        severity: { type: integer, nullable: true }
+        temperature: { type: number, format: double, nullable: true }
+        medName: { type: string, nullable: true }
+        medDose: { type: number, format: double, nullable: true }
+        medUnit:
+          allOf: [{ $ref: "#/components/schemas/MedUnit" }]
+          nullable: true
+        costCents: { type: integer, nullable: true }
+        details: { $ref: "#/components/schemas/RecordDetails" }
+        attachments:
+          type: array
+          items: { $ref: "#/components/schemas/Attachment" }
+
+    RecordCreate:
+      type: object
+      required: [memberId, occurredAt]
+      properties:
+        memberId: { type: string, format: uuid }
+        episodeId: { type: string, format: uuid, description: 与 newEpisode 二选一，都不传即进入待整理 }
+        newEpisode: { $ref: "#/components/schemas/NewEpisode" }
+        type: { $ref: "#/components/schemas/RecordType" }
+        occurredAt: { type: string, format: date-time }
+        body: { type: string, maxLength: 5000 }
+        isFlare: { type: boolean, description: 仅长期病程中的记录可用 }
+        severity: { type: integer, minimum: 0, maximum: 10, description: 仅症状 }
+        temperature: { type: number, format: double, minimum: 34, maximum: 43, description: 仅体温，°C，保留一位小数 }
+        medName: { type: string, maxLength: 100, description: 仅用药 }
+        medDose: { type: number, format: double, description: 仅用药 }
+        medUnit: { $ref: "#/components/schemas/MedUnit" }
+        costCents: { type: integer, minimum: 0, description: 仅就诊、治疗，单位分 }
+        details: { $ref: "#/components/schemas/RecordDetails" }
+
+    RecordPatch:
+      type: object
+      description: 修改类型时，旧类型专属且未在本次请求中出现的字段会被清空
+      properties:
+        memberId: { type: string, format: uuid }
+        episodeId:
+          type: string
+          format: uuid
+          nullable: true
+          x-go-type: nullable.Nullable[openapi_types.UUID]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+        type:
+          type: string
+          enum: [symptom, temperature, medication, visit, treatment, exam, other]
+          nullable: true
+          x-go-type: nullable.Nullable[RecordType]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+        occurredAt: { type: string, format: date-time }
+        body: { type: string, maxLength: 5000 }
+        isFlare: { type: boolean }
+        severity:
+          type: integer
+          nullable: true
+          x-go-type: nullable.Nullable[int]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+        temperature:
+          type: number
+          format: double
+          nullable: true
+          x-go-type: nullable.Nullable[float64]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+        medName:
+          type: string
+          nullable: true
+          x-go-type: nullable.Nullable[string]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+        medDose:
+          type: number
+          format: double
+          nullable: true
+          x-go-type: nullable.Nullable[float64]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+        medUnit:
+          type: string
+          enum: [ml, 片, 粒, 袋]
+          nullable: true
+          x-go-type: nullable.Nullable[MedUnit]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+        costCents:
+          type: integer
+          nullable: true
+          x-go-type: nullable.Nullable[int]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+        details: { $ref: "#/components/schemas/RecordDetails" }
+
+    RecordPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Record" }
+        nextCursor: { type: string, nullable: true }
+
+    AssignRequest:
+      type: object
+      required: [ids, episodeId]
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items: { type: string, format: uuid }
+        episodeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: null 表示移回待整理（带 newEpisode 时忽略）
+        newEpisode: { $ref: "#/components/schemas/NewEpisode" }
+
+    AssignResult:
+      type: object
+      required: [episodeId, updated]
+      properties:
+        episodeId: { type: string, format: uuid, nullable: true }
+        updated: { type: integer }
+
+    LastMedication:
+      type: object
+      required: [last]
+      properties:
+        last:
+          allOf: [{ $ref: "#/components/schemas/MedicationDose" }]
+          nullable: true
+
+    MedicationDose:
+      type: object
+      required: [recordId, medName, medDose, medUnit, occurredAt, hoursSince]
+      properties:
+        recordId: { type: string, format: uuid }
+        medName: { type: string }
+        medDose: { type: number, format: double, nullable: true }
+        medUnit:
+          allOf: [{ $ref: "#/components/schemas/MedUnit" }]
+          nullable: true
+        occurredAt: { type: string, format: date-time }
+        hoursSince: { type: number, format: double, description: 距现在的小时数，保留一位小数 }
+
+    # ---------- 附件 ----------
+    Attachment:
+      type: object
+      required: [id, recordId, kind, status, mime, sizeBytes, durationMs, width, height, caption, sortOrder, url, thumbUrl, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        recordId: { type: string, format: uuid, nullable: true }
+        kind: { $ref: "#/components/schemas/AttachmentKind" }
+        status: { $ref: "#/components/schemas/AttachmentStatus" }
+        mime: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        durationMs: { type: integer, nullable: true }
+        width: { type: integer, nullable: true }
+        height: { type: integer, nullable: true }
+        caption: { type: string, nullable: true, description: 语音的补充文字 }
+        sortOrder: { type: integer }
+        url: { type: string }
+        thumbUrl: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    AttachmentUpload:
+      type: object
+      required: [kind, file]
+      properties:
+        kind: { $ref: "#/components/schemas/AttachmentKind" }
+        recordId: { type: string, format: uuid, description: 照片和语音必填，头像不填 }
+        durationMs: { type: integer, minimum: 0, maximum: 180000, description: 前端测得的语音时长，转码后以 ffprobe 为准 }
+        caption: { type: string, maxLength: 200 }
+        sortOrder: { type: integer }
+        file:
+          type: string
+          format: binary
+          description: 照片 image/jpeg ≤10MB；语音 audio/mp4、audio/webm、audio/ogg ≤20MB；头像 image/jpeg ≤2MB
+
+    AttachmentPatch:
+      type: object
+      properties:
+        caption:
+          type: string
+          maxLength: 200
+          nullable: true
+          x-go-type: nullable.Nullable[string]
+          x-go-type-import: { path: github.com/oapi-codegen/nullable }
+          x-go-type-skip-optional-pointer: true
+        sortOrder: { type: integer }
+
+    # ---------- 浏览 ----------
+    TypeCounts:
+      type: object
+      required: [symptom, temperature, medication, visit, treatment, exam, other, untyped]
+      properties:
+        symptom: { type: integer }
+        temperature: { type: integer }
+        medication: { type: integer }
+        visit: { type: integer }
+        treatment: { type: integer }
+        exam: { type: integer }
+        other: { type: integer }
+        untyped: { type: integer, description: 未选类型的记录 }
+
+    CalendarDay:
+      type: object
+      required: [date, counts, maxSeverity, flare]
+      properties:
+        date: { type: string, format: date }
+        counts: { $ref: "#/components/schemas/TypeCounts" }
+        maxSeverity: { type: integer, nullable: true, description: 当天最高症状程度 }
+        flare: { type: boolean, description: 当天有发作记录 }
+
+    Calendar:
+      type: object
+      required: [from, to, days]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        days:
+          description: 只包含有记录的日子，按日期升序
+          type: array
+          items: { $ref: "#/components/schemas/CalendarDay" }
+
+    TrendPoint:
+      type: object
+      required: [recordId, occurredAt, value]
+      properties:
+        recordId: { type: string, format: uuid }
+        occurredAt: { type: string, format: date-time }
+        value: { type: number, format: double }
+
+    Trend:
+      type: object
+      required: [temperature, severity]
+      properties:
+        temperature:
+          type: array
+          items: { $ref: "#/components/schemas/TrendPoint" }
+        severity:
+          type: array
+          items: { $ref: "#/components/schemas/TrendPoint" }
+
+    EpisodeSummary:
+      type: object
+      required: [episode, latestTemperature, lastMedication, week]
+      properties:
+        episode: { $ref: "#/components/schemas/Episode" }
+        latestTemperature:
+          allOf: [{ $ref: "#/components/schemas/TemperatureReading" }]
+          nullable: true
+        lastMedication:
+          allOf: [{ $ref: "#/components/schemas/MedicationDose" }]
+          nullable: true
+        week:
+          description: 本周（周一到周日）有记录的日子
+          type: array
+          items: { $ref: "#/components/schemas/CalendarDay" }
+
+    TemperatureReading:
+      type: object
+      required: [recordId, value, occurredAt]
+      properties:
+        recordId: { type: string, format: uuid }
+        value: { type: number, format: double }
+        occurredAt: { type: string, format: date-time }
+
+    HomeMember:
+      type: object
+      required: [member, openEpisodes, recentRecords, episodeCountLastYear]
+      properties:
+        member: { $ref: "#/components/schemas/Member" }
+        openEpisodes:
+          description: 未结束的病程，按最近一条记录时间倒序
+          type: array
+          items: { $ref: "#/components/schemas/EpisodeSummary" }
+        recentRecords:
+          description: 最近 4 条记录
+          type: array
+          items: { $ref: "#/components/schemas/Record" }
+        episodeCountLastYear: { type: integer }
+
+    Home:
+      type: object
+      required: [members, inboxCount]
+      properties:
+        members:
+          description: 未归档的成员，按 sortOrder
+          type: array
+          items: { $ref: "#/components/schemas/HomeMember" }
+        inboxCount: { type: integer }
+
+    DiseaseEpisode:
+      type: object
+      required: [episode, maxTemperature, medications, visitCount]
+      properties:
+        episode: { $ref: "#/components/schemas/Episode" }
+        maxTemperature: { type: number, format: double, nullable: true }
+        medications:
+          type: array
+          items: { type: string }
+        visitCount: { type: integer }
+
+    DiseaseSummary:
+      type: object
+      required: [diseaseTagId, diseaseName, episodeCount, recoveredAvgDays, maxDays, topMedications, episodes]
+      properties:
+        diseaseTagId: { type: string, format: uuid }
+        diseaseName: { type: string }
+        episodeCount: { type: integer }
+        recoveredAvgDays: { type: number, format: double, nullable: true, description: 已结束病程的平均持续天数，保留一位小数 }
+        maxDays: { type: integer, nullable: true }
+        topMedications:
+          type: array
+          items: { $ref: "#/components/schemas/MedicationCount" }
+        episodes:
+          description: 按开始日期倒序
+          type: array
+          items: { $ref: "#/components/schemas/DiseaseEpisode" }
+
+    MedicationCount:
+      type: object
+      required: [name, count]
+      properties:
+        name: { type: string }
+        count: { type: integer, description: 用过这种药的病程数 }
+
+    ByDisease:
+      type: object
+      required: [range, diseases]
+      properties:
+        range: { type: string, enum: [1y, 3y, all] }
+        diseases:
+          description: 按病程数倒序
+          type: array
+          items: { $ref: "#/components/schemas/DiseaseSummary" }
+
+    # ---------- 报告 ----------
+    ExportRequest:
+      type: object
+      required: [type, photos]
+      properties:
+        type: { $ref: "#/components/schemas/ReportType" }
+        episodeId: { type: string, format: uuid, description: 病程报告必填 }
+        memberId: { type: string, format: uuid, description: 成员健康档案必填 }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        photos: { $ref: "#/components/schemas/PhotoOption" }
+
+    PrintData:
+      type: object
+      required: [type, generatedAt, from, to, photos, member, episode, episodes, records, costTotalCents, token]
+      properties:
+        type: { $ref: "#/components/schemas/ReportType" }
+        generatedAt: { type: string, format: date-time }
+        from: { type: string, format: date, nullable: true }
+        to: { type: string, format: date, nullable: true }
+        photos: { $ref: "#/components/schemas/PhotoOption" }
+        member: { $ref: "#/components/schemas/Member" }
+        episode:
+          allOf: [{ $ref: "#/components/schemas/Episode" }]
+          nullable: true
+          description: 病程报告的病程
+        episodes:
+          description: 成员健康档案中时间段内的病程（每个一行摘要）
+          type: array
+          items: { $ref: "#/components/schemas/Episode" }
+        records:
+          description: 病程报告中时间段内的全部记录，按发生时间升序
+          type: array
+          items: { $ref: "#/components/schemas/Record" }
+        costTotalCents: { type: integer }
+        token:
+          type: string
+          nullable: true
+          description: 取数用的打印令牌，打印页取附件文件时附在 URL 上

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiFetch } from './client'
+import { ApiError, apiFetch, apiUrl } from './client'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -20,5 +20,11 @@ describe('apiFetch', () => {
     const err = await apiFetch('/api/records/1', { method: 'PUT', body: '{}' }).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(ApiError)
     expect(err).toMatchObject({ status: 422, code: 'validation_failed', fields: { temperature: 'out_of_range' } })
+  })
+})
+
+describe('apiUrl', () => {
+  it('prefixes app-relative paths with the deployment base', () => {
+    expect(apiUrl('/api/me')).toBe(`${import.meta.env.BASE_URL.replace(/\/+$/, '')}/api/me`)
   })
 })

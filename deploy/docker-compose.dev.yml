@@ -14,9 +14,10 @@ services:
       - pgdata-dev:/var/lib/postgresql/data
 
   gotenberg:
-    build: ./gotenberg
+    image: gotenberg/gotenberg:8
     ports:
       - "3000:3000"
+    # Lets Chromium reach the Vite dev server on the host (PRINT_BASE_URL).
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

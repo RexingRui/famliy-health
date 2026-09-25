@@ -1,0 +1,81 @@
+# Production (see deploy/DEPLOY.md and deploy/SERVER_STEPS.md).
+#
+#   cp .env.example .env && fill in the production section
+#   sudo make docker-init          # data/ and backup/ owned by the container user (uid 10001)
+#   docker compose up -d --build
+#
+# No reverse proxy here: the server runs one independent gateway (Caddy in /opt/gateway) that owns
+# 80/443 and routes https://<PUBLIC_DOMAIN>/health/* to 127.0.0.1:8081. This project only
+# publishes that loopback port and knows nothing about the other apps on the machine.
+name: healthlog
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+      args:
+        GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
+        ALPINE_MIRROR: ${ALPINE_MIRROR-https://mirrors.tencent.com}
+        # Baked into the frontend build (asset URLs, router basename); must match BASE_PATH below.
+        BASE_PATH: ${BASE_PATH:-/health}
+    image: healthlog:latest
+    container_name: healthlog-app
+    restart: unless-stopped
+    environment:
+      HTTP_ADDR: ":8080"
+      DATABASE_URL: postgres://healthlog:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/healthlog?sslmode=disable
+      STORAGE_DIR: /data/storage
+      PRINT_TOKEN_SECRET: ${PRINT_TOKEN_SECRET:?set PRINT_TOKEN_SECRET in .env}
+      GOTENBERG_URL: http://gotenberg:3000
+      # Gotenberg opens the print page over the compose network, not through the public domain.
+      PRINT_BASE_URL: http://app:8080
+      BASE_PATH: ${BASE_PATH:-/health}
+      PUBLIC_BASE_URL: https://${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN in .env}${BASE_PATH:-/health}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./data/storage:/data/storage
+    # Loopback only: the gateway on the host proxies to it; never reachable from outside.
+    ports:
+      - "127.0.0.1:8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      gotenberg:
+        condition: service_started
+    stop_grace_period: 30s
+    logging: *logging
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: healthlog-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: healthlog
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: healthlog
+      TZ: Asia/Shanghai
+    # A bind mount, not a named volume: `docker compose down -v` cannot wipe it by accident.
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U healthlog -d healthlog"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging: *logging
+
+  gotenberg:
+    # The official image already ships fonts-noto-cjk, so Chinese renders without a custom build.
+    image: gotenberg/gotenberg:8
+    container_name: healthlog-gotenberg
+    restart: unless-stopped
+    command: ["gotenberg", "--api-timeout=60s", "--chromium-restart-after=30"]
+    logging: *logging

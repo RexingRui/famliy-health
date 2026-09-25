@@ -1,4 +1,5 @@
 import { createBrowserRouter, type RouteObject } from 'react-router'
+import { basePath } from '../api/client'
 import { LoginPage } from '../features/auth/LoginPage'
 import { EpisodePage } from '../features/episode/EpisodePage'
 import { ExportPage } from '../features/export/ExportPage'
@@ -40,4 +41,4 @@ export const routes: RouteObject[] = [
   { path: '*', element: <NotFoundPage /> },
 ]
 
-export const router = createBrowserRouter(routes)
+export const router = createBrowserRouter(routes, { basename: basePath || '/' })

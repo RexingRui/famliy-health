@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type AttachmentKind string
@@ -640,8 +639,8 @@ type Episode struct {
 	Name         string
 	Kind         EpisodeKind
 	Status       EpisodeStatus
-	StartedOn    pgtype.Date
-	EndedOn      pgtype.Date
+	StartedOn    time.Time
+	EndedOn      *time.Time
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -679,7 +678,7 @@ type Member struct {
 	Nickname   string
 	Relation   MemberRelation
 	Gender     MemberGender
-	BirthDate  pgtype.Date
+	BirthDate  time.Time
 	AvatarID   *uuid.UUID
 	Allergies  *string
 	Notes      *string
@@ -700,9 +699,9 @@ type Record struct {
 	Body        string
 	IsFlare     bool
 	Severity    *int16
-	Temperature pgtype.Numeric
+	Temperature *float64
 	MedName     *string
-	MedDose     pgtype.Numeric
+	MedDose     *float64
 	MedUnit     *string
 	CostCents   *int32
 	Details     []byte

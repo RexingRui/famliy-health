@@ -7,11 +7,174 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/oapi-codegen/nullable"
+	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for AttachmentKind.
+const (
+	AttachmentKindAudio  AttachmentKind = "audio"
+	AttachmentKindAvatar AttachmentKind = "avatar"
+	AttachmentKindPhoto  AttachmentKind = "photo"
+)
+
+// Valid indicates whether the value is a known member of the AttachmentKind enum.
+func (e AttachmentKind) Valid() bool {
+	switch e {
+	case AttachmentKindAudio:
+		return true
+	case AttachmentKindAvatar:
+		return true
+	case AttachmentKindPhoto:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AttachmentStatus.
+const (
+	AttachmentStatusFailed     AttachmentStatus = "failed"
+	AttachmentStatusPending    AttachmentStatus = "pending"
+	AttachmentStatusProcessing AttachmentStatus = "processing"
+	AttachmentStatusReady      AttachmentStatus = "ready"
+)
+
+// Valid indicates whether the value is a known member of the AttachmentStatus enum.
+func (e AttachmentStatus) Valid() bool {
+	switch e {
+	case AttachmentStatusFailed:
+		return true
+	case AttachmentStatusPending:
+		return true
+	case AttachmentStatusProcessing:
+		return true
+	case AttachmentStatusReady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BloodType.
+const (
+	BloodTypeA       BloodType = "A"
+	BloodTypeAB      BloodType = "AB"
+	BloodTypeB       BloodType = "B"
+	BloodTypeO       BloodType = "O"
+	BloodTypeUnknown BloodType = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the BloodType enum.
+func (e BloodType) Valid() bool {
+	switch e {
+	case BloodTypeA:
+		return true
+	case BloodTypeAB:
+		return true
+	case BloodTypeB:
+		return true
+	case BloodTypeO:
+		return true
+	case BloodTypeUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ByDiseaseRange.
+const (
+	ByDiseaseRangeAll ByDiseaseRange = "all"
+	ByDiseaseRangeN1y ByDiseaseRange = "1y"
+	ByDiseaseRangeN3y ByDiseaseRange = "3y"
+)
+
+// Valid indicates whether the value is a known member of the ByDiseaseRange enum.
+func (e ByDiseaseRange) Valid() bool {
+	switch e {
+	case ByDiseaseRangeAll:
+		return true
+	case ByDiseaseRangeN1y:
+		return true
+	case ByDiseaseRangeN3y:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EpisodeKind.
+const (
+	EpisodeKindLong  EpisodeKind = "long"
+	EpisodeKindShort EpisodeKind = "short"
+)
+
+// Valid indicates whether the value is a known member of the EpisodeKind enum.
+func (e EpisodeKind) Valid() bool {
+	switch e {
+	case EpisodeKindLong:
+		return true
+	case EpisodeKindShort:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EpisodeStatus.
+const (
+	EpisodeStatusActive    EpisodeStatus = "active"
+	EpisodeStatusEnded     EpisodeStatus = "ended"
+	EpisodeStatusRecovered EpisodeStatus = "recovered"
+	EpisodeStatusStable    EpisodeStatus = "stable"
+	EpisodeStatusTreating  EpisodeStatus = "treating"
+)
+
+// Valid indicates whether the value is a known member of the EpisodeStatus enum.
+func (e EpisodeStatus) Valid() bool {
+	switch e {
+	case EpisodeStatusActive:
+		return true
+	case EpisodeStatusEnded:
+		return true
+	case EpisodeStatusRecovered:
+		return true
+	case EpisodeStatusStable:
+		return true
+	case EpisodeStatusTreating:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Gender.
+const (
+	GenderFemale Gender = "female"
+	GenderMale   Gender = "male"
+)
+
+// Valid indicates whether the value is a known member of the Gender enum.
+func (e Gender) Valid() bool {
+	switch e {
+	case GenderFemale:
+		return true
+	case GenderMale:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for HealthStatus.
 const (
@@ -29,6 +192,408 @@ func (e HealthStatus) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// Defines values for MedUnit.
+const (
+	MedUnitCapsule MedUnit = "粒"
+	MedUnitMl      MedUnit = "ml"
+	MedUnitSachet  MedUnit = "袋"
+	MedUnitTablet  MedUnit = "片"
+)
+
+// Valid indicates whether the value is a known member of the MedUnit enum.
+func (e MedUnit) Valid() bool {
+	switch e {
+	case MedUnitCapsule:
+		return true
+	case MedUnitMl:
+		return true
+	case MedUnitSachet:
+		return true
+	case MedUnitTablet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MemberRelation.
+const (
+	MemberRelationChild       MemberRelation = "child"
+	MemberRelationGrandparent MemberRelation = "grandparent"
+	MemberRelationOther       MemberRelation = "other"
+	MemberRelationParent      MemberRelation = "parent"
+	MemberRelationSelf        MemberRelation = "self"
+	MemberRelationSpouse      MemberRelation = "spouse"
+)
+
+// Valid indicates whether the value is a known member of the MemberRelation enum.
+func (e MemberRelation) Valid() bool {
+	switch e {
+	case MemberRelationChild:
+		return true
+	case MemberRelationGrandparent:
+		return true
+	case MemberRelationOther:
+		return true
+	case MemberRelationParent:
+		return true
+	case MemberRelationSelf:
+		return true
+	case MemberRelationSpouse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PhotoOption.
+const (
+	PhotoOptionAppendix  PhotoOption = "appendix"
+	PhotoOptionNone      PhotoOption = "none"
+	PhotoOptionThumbnail PhotoOption = "thumbnail"
+)
+
+// Valid indicates whether the value is a known member of the PhotoOption enum.
+func (e PhotoOption) Valid() bool {
+	switch e {
+	case PhotoOptionAppendix:
+		return true
+	case PhotoOptionNone:
+		return true
+	case PhotoOptionThumbnail:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RecordType.
+const (
+	RecordTypeExam        RecordType = "exam"
+	RecordTypeMedication  RecordType = "medication"
+	RecordTypeOther       RecordType = "other"
+	RecordTypeSymptom     RecordType = "symptom"
+	RecordTypeTemperature RecordType = "temperature"
+	RecordTypeTreatment   RecordType = "treatment"
+	RecordTypeVisit       RecordType = "visit"
+)
+
+// Valid indicates whether the value is a known member of the RecordType enum.
+func (e RecordType) Valid() bool {
+	switch e {
+	case RecordTypeExam:
+		return true
+	case RecordTypeMedication:
+		return true
+	case RecordTypeOther:
+		return true
+	case RecordTypeSymptom:
+		return true
+	case RecordTypeTemperature:
+		return true
+	case RecordTypeTreatment:
+		return true
+	case RecordTypeVisit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportType.
+const (
+	ReportTypeEpisode ReportType = "episode"
+	ReportTypeMember  ReportType = "member"
+)
+
+// Valid indicates whether the value is a known member of the ReportType enum.
+func (e ReportType) Valid() bool {
+	switch e {
+	case ReportTypeEpisode:
+		return true
+	case ReportTypeMember:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAttachmentFileParamsVariant.
+const (
+	GetAttachmentFileParamsVariantDefault  GetAttachmentFileParamsVariant = "default"
+	GetAttachmentFileParamsVariantOriginal GetAttachmentFileParamsVariant = "original"
+	GetAttachmentFileParamsVariantThumb    GetAttachmentFileParamsVariant = "thumb"
+)
+
+// Valid indicates whether the value is a known member of the GetAttachmentFileParamsVariant enum.
+func (e GetAttachmentFileParamsVariant) Valid() bool {
+	switch e {
+	case GetAttachmentFileParamsVariantDefault:
+		return true
+	case GetAttachmentFileParamsVariantOriginal:
+		return true
+	case GetAttachmentFileParamsVariantThumb:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetMemberByDiseaseParamsRange.
+const (
+	GetMemberByDiseaseParamsRangeAll GetMemberByDiseaseParamsRange = "all"
+	GetMemberByDiseaseParamsRangeN1y GetMemberByDiseaseParamsRange = "1y"
+	GetMemberByDiseaseParamsRangeN3y GetMemberByDiseaseParamsRange = "3y"
+)
+
+// Valid indicates whether the value is a known member of the GetMemberByDiseaseParamsRange enum.
+func (e GetMemberByDiseaseParamsRange) Valid() bool {
+	switch e {
+	case GetMemberByDiseaseParamsRangeAll:
+		return true
+	case GetMemberByDiseaseParamsRangeN1y:
+		return true
+	case GetMemberByDiseaseParamsRangeN3y:
+		return true
+	default:
+		return false
+	}
+}
+
+// Account defines model for Account.
+type Account struct {
+	DisplayName string             `json:"displayName"`
+	Id          openapi_types.UUID `json:"id"`
+	Username    string             `json:"username"`
+}
+
+// AssignRequest defines model for AssignRequest.
+type AssignRequest struct {
+	// EpisodeId null 表示移回待整理（带 newEpisode 时忽略）
+	EpisodeId *openapi_types.UUID  `json:"episodeId"`
+	Ids       []openapi_types.UUID `json:"ids"`
+
+	// NewEpisode 随记录或批量归入一起新建病程；成员取自记录。diseaseTagId 与 diseaseName 二选一
+	NewEpisode *NewEpisode `json:"newEpisode,omitempty"`
+}
+
+// AssignResult defines model for AssignResult.
+type AssignResult struct {
+	EpisodeId *openapi_types.UUID `json:"episodeId"`
+	Updated   int                 `json:"updated"`
+}
+
+// Attachment defines model for Attachment.
+type Attachment struct {
+	// Caption 语音的补充文字
+	Caption    *string             `json:"caption"`
+	CreatedAt  time.Time           `json:"createdAt"`
+	DurationMs *int                `json:"durationMs"`
+	Height     *int                `json:"height"`
+	Id         openapi_types.UUID  `json:"id"`
+	Kind       AttachmentKind      `json:"kind"`
+	Mime       string              `json:"mime"`
+	RecordId   *openapi_types.UUID `json:"recordId"`
+	SizeBytes  int64               `json:"sizeBytes"`
+	SortOrder  int                 `json:"sortOrder"`
+
+	// Status 照片和头像上传后即为 ready；语音为 processing，转码完成后 ready，三次失败为 failed
+	Status   AttachmentStatus `json:"status"`
+	ThumbUrl *string          `json:"thumbUrl"`
+	Url      string           `json:"url"`
+	Width    *int             `json:"width"`
+}
+
+// AttachmentKind defines model for AttachmentKind.
+type AttachmentKind string
+
+// AttachmentPatch defines model for AttachmentPatch.
+type AttachmentPatch struct {
+	Caption   nullable.Nullable[string] `json:"caption,omitempty"`
+	SortOrder *int                      `json:"sortOrder,omitempty"`
+}
+
+// AttachmentStatus 照片和头像上传后即为 ready；语音为 processing，转码完成后 ready，三次失败为 failed
+type AttachmentStatus string
+
+// AttachmentUpload defines model for AttachmentUpload.
+type AttachmentUpload struct {
+	Caption *string `json:"caption,omitempty"`
+
+	// DurationMs 前端测得的语音时长，转码后以 ffprobe 为准
+	DurationMs *int `json:"durationMs,omitempty"`
+
+	// File 照片 image/jpeg ≤10MB；语音 audio/mp4、audio/webm、audio/ogg ≤20MB；头像 image/jpeg ≤2MB
+	File openapi_types.File `json:"file"`
+	Kind AttachmentKind     `json:"kind"`
+
+	// RecordId 照片和语音必填，头像不填
+	RecordId  *openapi_types.UUID `json:"recordId,omitempty"`
+	SortOrder *int                `json:"sortOrder,omitempty"`
+}
+
+// BloodType defines model for BloodType.
+type BloodType string
+
+// ByDisease defines model for ByDisease.
+type ByDisease struct {
+	// Diseases 按病程数倒序
+	Diseases []DiseaseSummary `json:"diseases"`
+	Range    ByDiseaseRange   `json:"range"`
+}
+
+// ByDiseaseRange defines model for ByDisease.Range.
+type ByDiseaseRange string
+
+// Calendar defines model for Calendar.
+type Calendar struct {
+	// Days 只包含有记录的日子，按日期升序
+	Days []CalendarDay      `json:"days"`
+	From openapi_types.Date `json:"from"`
+	To   openapi_types.Date `json:"to"`
+}
+
+// CalendarDay defines model for CalendarDay.
+type CalendarDay struct {
+	Counts TypeCounts         `json:"counts"`
+	Date   openapi_types.Date `json:"date"`
+
+	// Flare 当天有发作记录
+	Flare bool `json:"flare"`
+
+	// MaxSeverity 当天最高症状程度
+	MaxSeverity *int `json:"maxSeverity"`
+}
+
+// DiseaseEpisode defines model for DiseaseEpisode.
+type DiseaseEpisode struct {
+	Episode        Episode  `json:"episode"`
+	MaxTemperature *float64 `json:"maxTemperature"`
+	Medications    []string `json:"medications"`
+	VisitCount     int      `json:"visitCount"`
+}
+
+// DiseaseSummary defines model for DiseaseSummary.
+type DiseaseSummary struct {
+	DiseaseName  string             `json:"diseaseName"`
+	DiseaseTagId openapi_types.UUID `json:"diseaseTagId"`
+	EpisodeCount int                `json:"episodeCount"`
+
+	// Episodes 按开始日期倒序
+	Episodes []DiseaseEpisode `json:"episodes"`
+	MaxDays  *int             `json:"maxDays"`
+
+	// RecoveredAvgDays 已结束病程的平均持续天数，保留一位小数
+	RecoveredAvgDays *float64          `json:"recoveredAvgDays"`
+	TopMedications   []MedicationCount `json:"topMedications"`
+}
+
+// DiseaseTag defines model for DiseaseTag.
+type DiseaseTag struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+
+	// Preset 系统预置
+	Preset bool `json:"preset"`
+}
+
+// DiseaseTagCreate defines model for DiseaseTagCreate.
+type DiseaseTagCreate struct {
+	Name string `json:"name"`
+}
+
+// Episode defines model for Episode.
+type Episode struct {
+	// CostTotalCents 就诊与治疗费用合计，单位分
+	CostTotalCents int       `json:"costTotalCents"`
+	CreatedAt      time.Time `json:"createdAt"`
+
+	// Days 第几天（未结束）或共持续几天（已结束）
+	Days         int                 `json:"days"`
+	DiseaseName  string              `json:"diseaseName"`
+	DiseaseTagId openapi_types.UUID  `json:"diseaseTagId"`
+	EndedOn      *openapi_types.Date `json:"endedOn"`
+	Id           openapi_types.UUID  `json:"id"`
+
+	// Kind short 短期病程，long 长期病程
+	Kind         EpisodeKind        `json:"kind"`
+	LastRecordAt *time.Time         `json:"lastRecordAt"`
+	MemberId     openapi_types.UUID `json:"memberId"`
+	Name         string             `json:"name"`
+
+	// Open 未结束（进行中、治疗中、稳定期）
+	Open        bool               `json:"open"`
+	RecordCount int                `json:"recordCount"`
+	StartedOn   openapi_types.Date `json:"startedOn"`
+
+	// Status 短期：active 进行中、recovered 已康复；长期：treating 治疗中、stable 稳定期、ended 已结束
+	Status EpisodeStatus `json:"status"`
+
+	// SuggestRecovered 短期病程超过 14 天没有新记录，打开时提示“是否已康复”
+	SuggestRecovered bool      `json:"suggestRecovered"`
+	UpdatedAt        time.Time `json:"updatedAt"`
+}
+
+// EpisodeCreate defines model for EpisodeCreate.
+type EpisodeCreate struct {
+	DiseaseName  *string             `json:"diseaseName,omitempty"`
+	DiseaseTagId *openapi_types.UUID `json:"diseaseTagId,omitempty"`
+	EndedOn      *openapi_types.Date `json:"endedOn,omitempty"`
+
+	// Kind short 短期病程，long 长期病程
+	Kind      EpisodeKind         `json:"kind"`
+	MemberId  openapi_types.UUID  `json:"memberId"`
+	Name      *string             `json:"name,omitempty"`
+	StartedOn *openapi_types.Date `json:"startedOn,omitempty"`
+
+	// Status 短期：active 进行中、recovered 已康复；长期：treating 治疗中、stable 稳定期、ended 已结束
+	Status *EpisodeStatus `json:"status,omitempty"`
+}
+
+// EpisodeKind short 短期病程，long 长期病程
+type EpisodeKind string
+
+// EpisodePatch defines model for EpisodePatch.
+type EpisodePatch struct {
+	DiseaseName  *string                               `json:"diseaseName,omitempty"`
+	DiseaseTagId *openapi_types.UUID                   `json:"diseaseTagId,omitempty"`
+	EndedOn      nullable.Nullable[openapi_types.Date] `json:"endedOn,omitempty"`
+
+	// Kind short 短期病程，long 长期病程
+	Kind      *EpisodeKind        `json:"kind,omitempty"`
+	Name      *string             `json:"name,omitempty"`
+	StartedOn *openapi_types.Date `json:"startedOn,omitempty"`
+
+	// Status 短期：active 进行中、recovered 已康复；长期：treating 治疗中、stable 稳定期、ended 已结束
+	Status *EpisodeStatus `json:"status,omitempty"`
+}
+
+// EpisodeRef defines model for EpisodeRef.
+type EpisodeRef struct {
+	DiseaseName string             `json:"diseaseName"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// Kind short 短期病程，long 长期病程
+	Kind EpisodeKind `json:"kind"`
+	Name string      `json:"name"`
+
+	// Status 短期：active 进行中、recovered 已康复；长期：treating 治疗中、stable 稳定期、ended 已结束
+	Status EpisodeStatus `json:"status"`
+}
+
+// EpisodeStatus 短期：active 进行中、recovered 已康复；长期：treating 治疗中、stable 稳定期、ended 已结束
+type EpisodeStatus string
+
+// EpisodeSummary defines model for EpisodeSummary.
+type EpisodeSummary struct {
+	Episode           Episode             `json:"episode"`
+	LastMedication    *MedicationDose     `json:"lastMedication"`
+	LatestTemperature *TemperatureReading `json:"latestTemperature"`
+
+	// Week 本周（周一到周日）有记录的日子
+	Week []CalendarDay `json:"week"`
 }
 
 // Error defines model for Error.
@@ -51,6 +616,32 @@ type Error struct {
 	} `json:"error"`
 }
 
+// ExportRequest defines model for ExportRequest.
+type ExportRequest struct {
+	// EpisodeId 病程报告必填
+	EpisodeId *openapi_types.UUID `json:"episodeId,omitempty"`
+	From      *openapi_types.Date `json:"from,omitempty"`
+
+	// MemberId 成员健康档案必填
+	MemberId *openapi_types.UUID `json:"memberId,omitempty"`
+
+	// Photos none 不附带，thumbnail 附缩略图，appendix 作为附录附原图
+	Photos PhotoOption         `json:"photos"`
+	To     *openapi_types.Date `json:"to,omitempty"`
+
+	// Type episode 病程报告，member 成员健康档案
+	Type ReportType `json:"type"`
+}
+
+// Family defines model for Family.
+type Family struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+}
+
+// Gender defines model for Gender.
+type Gender string
+
 // Health defines model for Health.
 type Health struct {
 	// Checks 各依赖的检查结果，值为 ok 或错误说明
@@ -61,8 +652,552 @@ type Health struct {
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// Home defines model for Home.
+type Home struct {
+	InboxCount int `json:"inboxCount"`
+
+	// Members 未归档的成员，按 sortOrder
+	Members []HomeMember `json:"members"`
+}
+
+// HomeMember defines model for HomeMember.
+type HomeMember struct {
+	EpisodeCountLastYear int    `json:"episodeCountLastYear"`
+	Member               Member `json:"member"`
+
+	// OpenEpisodes 未结束的病程，按最近一条记录时间倒序
+	OpenEpisodes []EpisodeSummary `json:"openEpisodes"`
+
+	// RecentRecords 最近 4 条记录
+	RecentRecords []Record `json:"recentRecords"`
+}
+
+// LastMedication defines model for LastMedication.
+type LastMedication struct {
+	Last *MedicationDose `json:"last"`
+}
+
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	Password string `json:"password"`
+	Username string `json:"username"`
+}
+
+// Me defines model for Me.
+type Me struct {
+	Account Account `json:"account"`
+	Family  Family  `json:"family"`
+}
+
+// MedUnit defines model for MedUnit.
+type MedUnit string
+
+// MedicationCount defines model for MedicationCount.
+type MedicationCount struct {
+	// Count 用过这种药的病程数
+	Count int    `json:"count"`
+	Name  string `json:"name"`
+}
+
+// MedicationDose defines model for MedicationDose.
+type MedicationDose struct {
+	// HoursSince 距现在的小时数，保留一位小数
+	HoursSince float64            `json:"hoursSince"`
+	MedDose    *float64           `json:"medDose"`
+	MedName    string             `json:"medName"`
+	MedUnit    *MedUnit           `json:"medUnit"`
+	OccurredAt time.Time          `json:"occurredAt"`
+	RecordId   openapi_types.UUID `json:"recordId"`
+}
+
+// Member defines model for Member.
+type Member struct {
+	Allergies *string             `json:"allergies"`
+	Archived  bool                `json:"archived"`
+	AvatarId  *openapi_types.UUID `json:"avatarId"`
+	AvatarUrl *string             `json:"avatarUrl"`
+	BirthDate openapi_types.Date  `json:"birthDate"`
+	BloodType *BloodType          `json:"bloodType"`
+	CreatedAt time.Time           `json:"createdAt"`
+	Gender    Gender              `json:"gender"`
+	Id        openapi_types.UUID  `json:"id"`
+
+	// LongEpisodes 该成员的长期病程（长期疾病由此汇总显示）
+	LongEpisodes []EpisodeRef   `json:"longEpisodes"`
+	Nickname     string         `json:"nickname"`
+	Notes        *string        `json:"notes"`
+	Relation     MemberRelation `json:"relation"`
+	SortOrder    int            `json:"sortOrder"`
+	UpdatedAt    time.Time      `json:"updatedAt"`
+}
+
+// MemberCreate defines model for MemberCreate.
+type MemberCreate struct {
+	Allergies *string             `json:"allergies,omitempty"`
+	AvatarId  *openapi_types.UUID `json:"avatarId,omitempty"`
+	BirthDate openapi_types.Date  `json:"birthDate"`
+	BloodType *BloodType          `json:"bloodType,omitempty"`
+	Gender    Gender              `json:"gender"`
+	Nickname  string              `json:"nickname"`
+	Notes     *string             `json:"notes,omitempty"`
+	Relation  MemberRelation      `json:"relation"`
+}
+
+// MemberPatch defines model for MemberPatch.
+type MemberPatch struct {
+	Allergies nullable.Nullable[string]             `json:"allergies,omitempty"`
+	AvatarId  nullable.Nullable[openapi_types.UUID] `json:"avatarId,omitempty"`
+	BirthDate *openapi_types.Date                   `json:"birthDate,omitempty"`
+	BloodType nullable.Nullable[BloodType]          `json:"bloodType,omitempty"`
+	Gender    *Gender                               `json:"gender,omitempty"`
+	Nickname  *string                               `json:"nickname,omitempty"`
+	Notes     nullable.Nullable[string]             `json:"notes,omitempty"`
+	Relation  *MemberRelation                       `json:"relation,omitempty"`
+	SortOrder *int                                  `json:"sortOrder,omitempty"`
+}
+
+// MemberRelation defines model for MemberRelation.
+type MemberRelation string
+
+// NewEpisode 随记录或批量归入一起新建病程；成员取自记录。diseaseTagId 与 diseaseName 二选一
+type NewEpisode struct {
+	DiseaseName  *string             `json:"diseaseName,omitempty"`
+	DiseaseTagId *openapi_types.UUID `json:"diseaseTagId,omitempty"`
+
+	// Kind short 短期病程，long 长期病程
+	Kind EpisodeKind `json:"kind"`
+
+	// Name 为空时按规则生成：短期“病种 · 年-月”，长期“病种”
+	Name *string `json:"name,omitempty"`
+
+	// StartedOn 默认今天
+	StartedOn *openapi_types.Date `json:"startedOn,omitempty"`
+}
+
+// PhotoOption none 不附带，thumbnail 附缩略图，appendix 作为附录附原图
+type PhotoOption string
+
+// PrintData defines model for PrintData.
+type PrintData struct {
+	CostTotalCents int `json:"costTotalCents"`
+
+	// Episode 病程报告的病程
+	Episode *Episode `json:"episode"`
+
+	// Episodes 成员健康档案中时间段内的病程（每个一行摘要）
+	Episodes    []Episode           `json:"episodes"`
+	From        *openapi_types.Date `json:"from"`
+	GeneratedAt time.Time           `json:"generatedAt"`
+	Member      Member              `json:"member"`
+
+	// Photos none 不附带，thumbnail 附缩略图，appendix 作为附录附原图
+	Photos PhotoOption `json:"photos"`
+
+	// Records 病程报告中时间段内的全部记录，按发生时间升序
+	Records []Record            `json:"records"`
+	To      *openapi_types.Date `json:"to"`
+
+	// Token 取数用的打印令牌，打印页取附件文件时附在 URL 上
+	Token *string `json:"token"`
+
+	// Type episode 病程报告，member 成员健康档案
+	Type ReportType `json:"type"`
+}
+
+// Record defines model for Record.
+type Record struct {
+	Attachments []Attachment `json:"attachments"`
+
+	// Backfilled 发生与录入相差超过 1 小时，显示“补录”
+	Backfilled bool   `json:"backfilled"`
+	Body       string `json:"body"`
+	CostCents  *int   `json:"costCents"`
+
+	// CreatedAt 录入时间
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Details 就诊：hospital、department、doctor；治疗：item、institution；检查：item
+	Details   RecordDetails       `json:"details"`
+	EpisodeId *openapi_types.UUID `json:"episodeId"`
+	Id        openapi_types.UUID  `json:"id"`
+	IsFlare   bool                `json:"isFlare"`
+	MedDose   *float64            `json:"medDose"`
+	MedName   *string             `json:"medName"`
+	MedUnit   *MedUnit            `json:"medUnit"`
+	MemberId  openapi_types.UUID  `json:"memberId"`
+
+	// OccurredAt 发生时间
+	OccurredAt  time.Time   `json:"occurredAt"`
+	Severity    *int        `json:"severity"`
+	Temperature *float64    `json:"temperature"`
+	Type        *RecordType `json:"type"`
+	UpdatedAt   time.Time   `json:"updatedAt"`
+}
+
+// RecordCreate defines model for RecordCreate.
+type RecordCreate struct {
+	Body *string `json:"body,omitempty"`
+
+	// CostCents 仅就诊、治疗，单位分
+	CostCents *int `json:"costCents,omitempty"`
+
+	// Details 就诊：hospital、department、doctor；治疗：item、institution；检查：item
+	Details *RecordDetails `json:"details,omitempty"`
+
+	// EpisodeId 与 newEpisode 二选一，都不传即进入待整理
+	EpisodeId *openapi_types.UUID `json:"episodeId,omitempty"`
+
+	// IsFlare 仅长期病程中的记录可用
+	IsFlare *bool `json:"isFlare,omitempty"`
+
+	// MedDose 仅用药
+	MedDose *float64 `json:"medDose,omitempty"`
+
+	// MedName 仅用药
+	MedName  *string            `json:"medName,omitempty"`
+	MedUnit  *MedUnit           `json:"medUnit,omitempty"`
+	MemberId openapi_types.UUID `json:"memberId"`
+
+	// NewEpisode 随记录或批量归入一起新建病程；成员取自记录。diseaseTagId 与 diseaseName 二选一
+	NewEpisode *NewEpisode `json:"newEpisode,omitempty"`
+	OccurredAt time.Time   `json:"occurredAt"`
+
+	// Severity 仅症状
+	Severity *int `json:"severity,omitempty"`
+
+	// Temperature 仅体温，°C，保留一位小数
+	Temperature *float64    `json:"temperature,omitempty"`
+	Type        *RecordType `json:"type,omitempty"`
+}
+
+// RecordDetails 就诊：hospital、department、doctor；治疗：item、institution；检查：item
+type RecordDetails struct {
+	Department  *string `json:"department,omitempty"`
+	Doctor      *string `json:"doctor,omitempty"`
+	Hospital    *string `json:"hospital,omitempty"`
+	Institution *string `json:"institution,omitempty"`
+	Item        *string `json:"item,omitempty"`
+}
+
+// RecordPage defines model for RecordPage.
+type RecordPage struct {
+	Items      []Record `json:"items"`
+	NextCursor *string  `json:"nextCursor"`
+}
+
+// RecordPatch 修改类型时，旧类型专属且未在本次请求中出现的字段会被清空
+type RecordPatch struct {
+	Body      *string                `json:"body,omitempty"`
+	CostCents nullable.Nullable[int] `json:"costCents,omitempty"`
+
+	// Details 就诊：hospital、department、doctor；治疗：item、institution；检查：item
+	Details     *RecordDetails                        `json:"details,omitempty"`
+	EpisodeId   nullable.Nullable[openapi_types.UUID] `json:"episodeId,omitempty"`
+	IsFlare     *bool                                 `json:"isFlare,omitempty"`
+	MedDose     nullable.Nullable[float64]            `json:"medDose,omitempty"`
+	MedName     nullable.Nullable[string]             `json:"medName,omitempty"`
+	MedUnit     nullable.Nullable[MedUnit]            `json:"medUnit,omitempty"`
+	MemberId    *openapi_types.UUID                   `json:"memberId,omitempty"`
+	OccurredAt  *time.Time                            `json:"occurredAt,omitempty"`
+	Severity    nullable.Nullable[int]                `json:"severity,omitempty"`
+	Temperature nullable.Nullable[float64]            `json:"temperature,omitempty"`
+	Type        nullable.Nullable[RecordType]         `json:"type,omitempty"`
+}
+
+// RecordType defines model for RecordType.
+type RecordType string
+
+// ReportType episode 病程报告，member 成员健康档案
+type ReportType string
+
+// TemperatureReading defines model for TemperatureReading.
+type TemperatureReading struct {
+	OccurredAt time.Time          `json:"occurredAt"`
+	RecordId   openapi_types.UUID `json:"recordId"`
+	Value      float64            `json:"value"`
+}
+
+// Trend defines model for Trend.
+type Trend struct {
+	Severity    []TrendPoint `json:"severity"`
+	Temperature []TrendPoint `json:"temperature"`
+}
+
+// TrendPoint defines model for TrendPoint.
+type TrendPoint struct {
+	OccurredAt time.Time          `json:"occurredAt"`
+	RecordId   openapi_types.UUID `json:"recordId"`
+	Value      float64            `json:"value"`
+}
+
+// TypeCounts defines model for TypeCounts.
+type TypeCounts struct {
+	Exam        int `json:"exam"`
+	Medication  int `json:"medication"`
+	Other       int `json:"other"`
+	Symptom     int `json:"symptom"`
+	Temperature int `json:"temperature"`
+	Treatment   int `json:"treatment"`
+
+	// Untyped 未选类型的记录
+	Untyped int `json:"untyped"`
+	Visit   int `json:"visit"`
+}
+
+// Id defines model for Id.
+type Id = openapi_types.UUID
+
+// Month defines model for Month.
+type Month = string
+
+// GetAttachmentFileParams defines parameters for GetAttachmentFile.
+type GetAttachmentFileParams struct {
+	Variant *GetAttachmentFileParamsVariant `form:"variant,omitempty" json:"variant,omitempty"`
+
+	// Token 打印令牌，供 Gotenberg 渲染报告时取图
+	Token *string `form:"token,omitempty" json:"token,omitempty"`
+}
+
+// GetAttachmentFileParamsVariant defines parameters for GetAttachmentFile.
+type GetAttachmentFileParamsVariant string
+
+// LogoutParams defines parameters for Logout.
+type LogoutParams struct {
+	All *bool `form:"all,omitempty" json:"all,omitempty"`
+}
+
+// ListEpisodesParams defines parameters for ListEpisodes.
+type ListEpisodesParams struct {
+	MemberId *openapi_types.UUID `form:"memberId,omitempty" json:"memberId,omitempty"`
+
+	// Open true 只返回未结束的（进行中、治疗中、稳定期）
+	Open         *bool               `form:"open,omitempty" json:"open,omitempty"`
+	DiseaseTagId *openapi_types.UUID `form:"diseaseTagId,omitempty" json:"diseaseTagId,omitempty"`
+	Kind         *EpisodeKind        `form:"kind,omitempty" json:"kind,omitempty"`
+}
+
+// GetEpisodeCalendarParams defines parameters for GetEpisodeCalendar.
+type GetEpisodeCalendarParams struct {
+	// Month 年月，如 2026-09
+	Month Month `form:"month" json:"month"`
+}
+
+// GetEpisodeTrendParams defines parameters for GetEpisodeTrend.
+type GetEpisodeTrendParams struct {
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// GetLastMedicationParams defines parameters for GetLastMedication.
+type GetLastMedicationParams struct {
+	MemberId openapi_types.UUID `form:"memberId" json:"memberId"`
+	MedName  string             `form:"medName" json:"medName"`
+}
+
+// ListMembersParams defines parameters for ListMembers.
+type ListMembersParams struct {
+	IncludeArchived *bool `form:"includeArchived,omitempty" json:"includeArchived,omitempty"`
+}
+
+// DeleteMemberParams defines parameters for DeleteMember.
+type DeleteMemberParams struct {
+	Confirm bool `form:"confirm" json:"confirm"`
+}
+
+// GetMemberByDiseaseParams defines parameters for GetMemberByDisease.
+type GetMemberByDiseaseParams struct {
+	Range *GetMemberByDiseaseParamsRange `form:"range,omitempty" json:"range,omitempty"`
+}
+
+// GetMemberByDiseaseParamsRange defines parameters for GetMemberByDisease.
+type GetMemberByDiseaseParamsRange string
+
+// GetMemberCalendarParams defines parameters for GetMemberCalendar.
+type GetMemberCalendarParams struct {
+	// Month 年月，如 2026-09
+	Month Month `form:"month" json:"month"`
+}
+
+// GetPrintDataParams defines parameters for GetPrintData.
+type GetPrintDataParams struct {
+	Token *string     `form:"token,omitempty" json:"token,omitempty"`
+	Type  *ReportType `form:"type,omitempty" json:"type,omitempty"`
+
+	// Id 病程报告为病程 ID，成员健康档案为成员 ID
+	Id     *openapi_types.UUID `form:"id,omitempty" json:"id,omitempty"`
+	From   *openapi_types.Date `form:"from,omitempty" json:"from,omitempty"`
+	To     *openapi_types.Date `form:"to,omitempty" json:"to,omitempty"`
+	Photos *PhotoOption        `form:"photos,omitempty" json:"photos,omitempty"`
+}
+
+// ListRecordsParams defines parameters for ListRecords.
+type ListRecordsParams struct {
+	MemberId  *openapi_types.UUID `form:"memberId,omitempty" json:"memberId,omitempty"`
+	EpisodeId *openapi_types.UUID `form:"episodeId,omitempty" json:"episodeId,omitempty"`
+
+	// Inbox true 只返回未归入病程的记录
+	Inbox *bool `form:"inbox,omitempty" json:"inbox,omitempty"`
+
+	// Type 可多选，如 type=visit&type=medication
+	Type *[]RecordType `form:"type,omitempty" json:"type,omitempty"`
+
+	// Flare true 只返回发作记录
+	Flare *bool      `form:"flare,omitempty" json:"flare,omitempty"`
+	From  *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To    *time.Time `form:"to,omitempty" json:"to,omitempty"`
+
+	// Q 搜索文字内容、语音补充文字、药名、医院名称
+	Q      *string `form:"q,omitempty" json:"q,omitempty"`
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// UpdateAttachmentJSONRequestBody defines body for UpdateAttachment for application/json ContentType.
+type UpdateAttachmentJSONRequestBody = AttachmentPatch
+
+// UploadAttachmentMultipartRequestBody defines body for UploadAttachment for multipart/form-data ContentType.
+type UploadAttachmentMultipartRequestBody = AttachmentUpload
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = LoginRequest
+
+// CreateDiseaseTagJSONRequestBody defines body for CreateDiseaseTag for application/json ContentType.
+type CreateDiseaseTagJSONRequestBody = DiseaseTagCreate
+
+// CreateEpisodeJSONRequestBody defines body for CreateEpisode for application/json ContentType.
+type CreateEpisodeJSONRequestBody = EpisodeCreate
+
+// UpdateEpisodeJSONRequestBody defines body for UpdateEpisode for application/json ContentType.
+type UpdateEpisodeJSONRequestBody = EpisodePatch
+
+// CreateExportJSONRequestBody defines body for CreateExport for application/json ContentType.
+type CreateExportJSONRequestBody = ExportRequest
+
+// CreateMemberJSONRequestBody defines body for CreateMember for application/json ContentType.
+type CreateMemberJSONRequestBody = MemberCreate
+
+// UpdateMemberJSONRequestBody defines body for UpdateMember for application/json ContentType.
+type UpdateMemberJSONRequestBody = MemberPatch
+
+// AssignRecordsJSONRequestBody defines body for AssignRecords for application/json ContentType.
+type AssignRecordsJSONRequestBody = AssignRequest
+
+// UpdateRecordJSONRequestBody defines body for UpdateRecord for application/json ContentType.
+type UpdateRecordJSONRequestBody = RecordPatch
+
+// PutRecordJSONRequestBody defines body for PutRecord for application/json ContentType.
+type PutRecordJSONRequestBody = RecordCreate
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+
+	// (DELETE /api/attachments/{id})
+	DeleteAttachment(w http.ResponseWriter, r *http.Request, id Id)
+	// UpdateAttachment 修改语音补充文字或顺序
+	// (PATCH /api/attachments/{id})
+	UpdateAttachment(w http.ResponseWriter, r *http.Request, id Id)
+	// UploadAttachment 上传附件（幂等）。照片和头像须为 JPEG；语音上传后异步转码
+	// (PUT /api/attachments/{id})
+	UploadAttachment(w http.ResponseWriter, r *http.Request, id Id)
+	// GetAttachmentFile 读取附件文件，支持 Range（语音可拖动）
+	// (GET /api/attachments/{id}/file)
+	GetAttachmentFile(w http.ResponseWriter, r *http.Request, id Id, params GetAttachmentFileParams)
+	// ReprocessAttachment 转码失败的语音重新处理
+	// (POST /api/attachments/{id}/reprocess)
+	ReprocessAttachment(w http.ResponseWriter, r *http.Request, id Id)
+	// Login 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
+	// (POST /api/auth/login)
+	Login(w http.ResponseWriter, r *http.Request)
+	// Logout 注销当前会话；all=true 注销该账号的全部会话
+	// (POST /api/auth/logout)
+	Logout(w http.ResponseWriter, r *http.Request, params LogoutParams)
+	// ListDiseaseTags 病种标签：系统预置 + 本家庭自定义
+	// (GET /api/disease-tags)
+	ListDiseaseTags(w http.ResponseWriter, r *http.Request)
+	// CreateDiseaseTag 新增自定义病种；同名已存在时返回已有标签
+	// (POST /api/disease-tags)
+	CreateDiseaseTag(w http.ResponseWriter, r *http.Request)
+	// ListEpisodes 病程列表，按最近一条记录时间倒序
+	// (GET /api/episodes)
+	ListEpisodes(w http.ResponseWriter, r *http.Request, params ListEpisodesParams)
+
+	// (POST /api/episodes)
+	CreateEpisode(w http.ResponseWriter, r *http.Request)
+	// DeleteEpisode 删除病程，其中的记录退回待整理
+	// (DELETE /api/episodes/{id})
+	DeleteEpisode(w http.ResponseWriter, r *http.Request, id Id)
+
+	// (GET /api/episodes/{id})
+	GetEpisode(w http.ResponseWriter, r *http.Request, id Id)
+	// UpdateEpisode 编辑病程与切换状态；短期可转长期（进行中→治疗中，已康复→稳定期）
+	// (PATCH /api/episodes/{id})
+	UpdateEpisode(w http.ResponseWriter, r *http.Request, id Id)
+	// GetEpisodeCalendar 病程一个月内每天各类型的记录数和最高症状程度
+	// (GET /api/episodes/{id}/calendar)
+	GetEpisodeCalendar(w http.ResponseWriter, r *http.Request, id Id, params GetEpisodeCalendarParams)
+	// GetEpisodeTrend 体温和症状程度的时间序列
+	// (GET /api/episodes/{id}/trend)
+	GetEpisodeTrend(w http.ResponseWriter, r *http.Request, id Id, params GetEpisodeTrendParams)
+	// CreateExport 生成 PDF 报告，同步返回文件
+	// (POST /api/exports)
+	CreateExport(w http.ResponseWriter, r *http.Request)
+	// GetHome 首页与家庭总览的聚合数据
+	// (GET /api/home)
+	GetHome(w http.ResponseWriter, r *http.Request)
+	// GetMe 当前账号和家庭
+	// (GET /api/me)
+	GetMe(w http.ResponseWriter, r *http.Request)
+	// GetLastMedication 同一成员同一种药上次的服用时间，用于“上次服用”提示
+	// (GET /api/medications/last)
+	GetLastMedication(w http.ResponseWriter, r *http.Request, params GetLastMedicationParams)
+
+	// (GET /api/members)
+	ListMembers(w http.ResponseWriter, r *http.Request, params ListMembersParams)
+
+	// (POST /api/members)
+	CreateMember(w http.ResponseWriter, r *http.Request)
+	// DeleteMember 删除成员及其全部病程、记录和附件（不可恢复，需带 confirm=true）
+	// (DELETE /api/members/{id})
+	DeleteMember(w http.ResponseWriter, r *http.Request, id Id, params DeleteMemberParams)
+
+	// (GET /api/members/{id})
+	GetMember(w http.ResponseWriter, r *http.Request, id Id)
+
+	// (PATCH /api/members/{id})
+	UpdateMember(w http.ResponseWriter, r *http.Request, id Id)
+	// ArchiveMember 归档：数据保留，不再出现在快速切换中
+	// (POST /api/members/{id}/archive)
+	ArchiveMember(w http.ResponseWriter, r *http.Request, id Id)
+	// GetMemberByDisease 成员主页“按病种”视图：同一病种的全部病程及汇总
+	// (GET /api/members/{id}/by-disease)
+	GetMemberByDisease(w http.ResponseWriter, r *http.Request, id Id, params GetMemberByDiseaseParams)
+	// GetMemberCalendar 成员一个月内每天各类型的记录数（跨病程）
+	// (GET /api/members/{id}/calendar)
+	GetMemberCalendar(w http.ResponseWriter, r *http.Request, id Id, params GetMemberCalendarParams)
+
+	// (POST /api/members/{id}/unarchive)
+	UnarchiveMember(w http.ResponseWriter, r *http.Request, id Id)
+	// GetPrintData 打印页取数
+	// (GET /api/print-data)
+	GetPrintData(w http.ResponseWriter, r *http.Request, params GetPrintDataParams)
+	// ListRecords 统一的记录查询，覆盖时间线、待整理、按类型筛选和搜索；按发生时间倒序
+	// (GET /api/records)
+	ListRecords(w http.ResponseWriter, r *http.Request, params ListRecordsParams)
+	// AssignRecords 批量归入病程；episodeId 为 null 表示移回待整理；可带 newEpisode 同时新建
+	// (POST /api/records/assign)
+	AssignRecords(w http.ResponseWriter, r *http.Request)
+	// DeleteRecord 删除记录及其附件
+	// (DELETE /api/records/{id})
+	DeleteRecord(w http.ResponseWriter, r *http.Request, id Id)
+
+	// (GET /api/records/{id})
+	GetRecord(w http.ResponseWriter, r *http.Request, id Id)
+
+	// (PATCH /api/records/{id})
+	UpdateRecord(w http.ResponseWriter, r *http.Request, id Id)
+	// PutRecord 创建记录（幂等）。ID 已存在时直接返回已有记录，不做修改
+	// (PUT /api/records/{id})
+	PutRecord(w http.ResponseWriter, r *http.Request, id Id)
 	// Healthz 健康检查（数据库、Gotenberg 连通性），供外部拨测使用
 	// (GET /healthz)
 	Healthz(w http.ResponseWriter, r *http.Request)
@@ -71,6 +1206,212 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// (DELETE /api/attachments/{id})
+func (_ Unimplemented) DeleteAttachment(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateAttachment 修改语音补充文字或顺序
+// (PATCH /api/attachments/{id})
+func (_ Unimplemented) UpdateAttachment(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UploadAttachment 上传附件（幂等）。照片和头像须为 JPEG；语音上传后异步转码
+// (PUT /api/attachments/{id})
+func (_ Unimplemented) UploadAttachment(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetAttachmentFile 读取附件文件，支持 Range（语音可拖动）
+// (GET /api/attachments/{id}/file)
+func (_ Unimplemented) GetAttachmentFile(w http.ResponseWriter, r *http.Request, id Id, params GetAttachmentFileParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ReprocessAttachment 转码失败的语音重新处理
+// (POST /api/attachments/{id}/reprocess)
+func (_ Unimplemented) ReprocessAttachment(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Login 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
+// (POST /api/auth/login)
+func (_ Unimplemented) Login(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Logout 注销当前会话；all=true 注销该账号的全部会话
+// (POST /api/auth/logout)
+func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request, params LogoutParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListDiseaseTags 病种标签：系统预置 + 本家庭自定义
+// (GET /api/disease-tags)
+func (_ Unimplemented) ListDiseaseTags(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateDiseaseTag 新增自定义病种；同名已存在时返回已有标签
+// (POST /api/disease-tags)
+func (_ Unimplemented) CreateDiseaseTag(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListEpisodes 病程列表，按最近一条记录时间倒序
+// (GET /api/episodes)
+func (_ Unimplemented) ListEpisodes(w http.ResponseWriter, r *http.Request, params ListEpisodesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /api/episodes)
+func (_ Unimplemented) CreateEpisode(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteEpisode 删除病程，其中的记录退回待整理
+// (DELETE /api/episodes/{id})
+func (_ Unimplemented) DeleteEpisode(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /api/episodes/{id})
+func (_ Unimplemented) GetEpisode(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateEpisode 编辑病程与切换状态；短期可转长期（进行中→治疗中，已康复→稳定期）
+// (PATCH /api/episodes/{id})
+func (_ Unimplemented) UpdateEpisode(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetEpisodeCalendar 病程一个月内每天各类型的记录数和最高症状程度
+// (GET /api/episodes/{id}/calendar)
+func (_ Unimplemented) GetEpisodeCalendar(w http.ResponseWriter, r *http.Request, id Id, params GetEpisodeCalendarParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetEpisodeTrend 体温和症状程度的时间序列
+// (GET /api/episodes/{id}/trend)
+func (_ Unimplemented) GetEpisodeTrend(w http.ResponseWriter, r *http.Request, id Id, params GetEpisodeTrendParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateExport 生成 PDF 报告，同步返回文件
+// (POST /api/exports)
+func (_ Unimplemented) CreateExport(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetHome 首页与家庭总览的聚合数据
+// (GET /api/home)
+func (_ Unimplemented) GetHome(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetMe 当前账号和家庭
+// (GET /api/me)
+func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetLastMedication 同一成员同一种药上次的服用时间，用于“上次服用”提示
+// (GET /api/medications/last)
+func (_ Unimplemented) GetLastMedication(w http.ResponseWriter, r *http.Request, params GetLastMedicationParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /api/members)
+func (_ Unimplemented) ListMembers(w http.ResponseWriter, r *http.Request, params ListMembersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /api/members)
+func (_ Unimplemented) CreateMember(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteMember 删除成员及其全部病程、记录和附件（不可恢复，需带 confirm=true）
+// (DELETE /api/members/{id})
+func (_ Unimplemented) DeleteMember(w http.ResponseWriter, r *http.Request, id Id, params DeleteMemberParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /api/members/{id})
+func (_ Unimplemented) GetMember(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /api/members/{id})
+func (_ Unimplemented) UpdateMember(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ArchiveMember 归档：数据保留，不再出现在快速切换中
+// (POST /api/members/{id}/archive)
+func (_ Unimplemented) ArchiveMember(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetMemberByDisease 成员主页“按病种”视图：同一病种的全部病程及汇总
+// (GET /api/members/{id}/by-disease)
+func (_ Unimplemented) GetMemberByDisease(w http.ResponseWriter, r *http.Request, id Id, params GetMemberByDiseaseParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetMemberCalendar 成员一个月内每天各类型的记录数（跨病程）
+// (GET /api/members/{id}/calendar)
+func (_ Unimplemented) GetMemberCalendar(w http.ResponseWriter, r *http.Request, id Id, params GetMemberCalendarParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /api/members/{id}/unarchive)
+func (_ Unimplemented) UnarchiveMember(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPrintData 打印页取数
+// (GET /api/print-data)
+func (_ Unimplemented) GetPrintData(w http.ResponseWriter, r *http.Request, params GetPrintDataParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListRecords 统一的记录查询，覆盖时间线、待整理、按类型筛选和搜索；按发生时间倒序
+// (GET /api/records)
+func (_ Unimplemented) ListRecords(w http.ResponseWriter, r *http.Request, params ListRecordsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AssignRecords 批量归入病程；episodeId 为 null 表示移回待整理；可带 newEpisode 同时新建
+// (POST /api/records/assign)
+func (_ Unimplemented) AssignRecords(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteRecord 删除记录及其附件
+// (DELETE /api/records/{id})
+func (_ Unimplemented) DeleteRecord(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /api/records/{id})
+func (_ Unimplemented) GetRecord(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /api/records/{id})
+func (_ Unimplemented) UpdateRecord(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutRecord 创建记录（幂等）。ID 已存在时直接返回已有记录，不做修改
+// (PUT /api/records/{id})
+func (_ Unimplemented) PutRecord(w http.ResponseWriter, r *http.Request, id Id) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // Healthz 健康检查（数据库、Gotenberg 连通性），供外部拨测使用
 // (GET /healthz)
@@ -86,6 +1427,1232 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// DeleteAttachment operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAttachment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAttachment(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAttachment operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAttachment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAttachment(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UploadAttachment operation middleware
+func (siw *ServerInterfaceWrapper) UploadAttachment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadAttachment(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAttachmentFile operation middleware
+func (siw *ServerInterfaceWrapper) GetAttachmentFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAttachmentFileParams
+
+	// ------------- Optional query parameter "variant" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "variant", r.URL.Query(), &params.Variant, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "variant"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "variant", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAttachmentFile(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReprocessAttachment operation middleware
+func (siw *ServerInterfaceWrapper) ReprocessAttachment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReprocessAttachment(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Login(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LogoutParams
+
+	// ------------- Optional query parameter "all" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "all", r.URL.Query(), &params.All, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "all"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "all", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Logout(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListDiseaseTags operation middleware
+func (siw *ServerInterfaceWrapper) ListDiseaseTags(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDiseaseTags(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateDiseaseTag operation middleware
+func (siw *ServerInterfaceWrapper) CreateDiseaseTag(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateDiseaseTag(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListEpisodes operation middleware
+func (siw *ServerInterfaceWrapper) ListEpisodes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListEpisodesParams
+
+	// ------------- Optional query parameter "memberId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "memberId", r.URL.Query(), &params.MemberId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "memberId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "memberId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "open" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "open", r.URL.Query(), &params.Open, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "open"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "open", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "diseaseTagId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "diseaseTagId", r.URL.Query(), &params.DiseaseTagId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "diseaseTagId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "diseaseTagId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListEpisodes(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateEpisode operation middleware
+func (siw *ServerInterfaceWrapper) CreateEpisode(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateEpisode(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteEpisode operation middleware
+func (siw *ServerInterfaceWrapper) DeleteEpisode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteEpisode(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetEpisode operation middleware
+func (siw *ServerInterfaceWrapper) GetEpisode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEpisode(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateEpisode operation middleware
+func (siw *ServerInterfaceWrapper) UpdateEpisode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateEpisode(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetEpisodeCalendar operation middleware
+func (siw *ServerInterfaceWrapper) GetEpisodeCalendar(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetEpisodeCalendarParams
+
+	// ------------- Required query parameter "month" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "month", r.URL.Query(), &params.Month, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "month"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "month", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEpisodeCalendar(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetEpisodeTrend operation middleware
+func (siw *ServerInterfaceWrapper) GetEpisodeTrend(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetEpisodeTrendParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEpisodeTrend(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateExport operation middleware
+func (siw *ServerInterfaceWrapper) CreateExport(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateExport(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetHome operation middleware
+func (siw *ServerInterfaceWrapper) GetHome(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHome(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMe operation middleware
+func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLastMedication operation middleware
+func (siw *ServerInterfaceWrapper) GetLastMedication(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetLastMedicationParams
+
+	// ------------- Required query parameter "memberId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "memberId", r.URL.Query(), &params.MemberId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "memberId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "memberId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "medName" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "medName", r.URL.Query(), &params.MedName, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "medName"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "medName", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLastMedication(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMembers operation middleware
+func (siw *ServerInterfaceWrapper) ListMembers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListMembersParams
+
+	// ------------- Optional query parameter "includeArchived" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "includeArchived", r.URL.Query(), &params.IncludeArchived, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "includeArchived"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "includeArchived", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMembers(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateMember operation middleware
+func (siw *ServerInterfaceWrapper) CreateMember(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateMember(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteMember operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteMemberParams
+
+	// ------------- Required query parameter "confirm" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "confirm", r.URL.Query(), &params.Confirm, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "confirm"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "confirm", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteMember(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMember operation middleware
+func (siw *ServerInterfaceWrapper) GetMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMember(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateMember operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateMember(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ArchiveMember operation middleware
+func (siw *ServerInterfaceWrapper) ArchiveMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ArchiveMember(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMemberByDisease operation middleware
+func (siw *ServerInterfaceWrapper) GetMemberByDisease(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetMemberByDiseaseParams
+
+	// ------------- Optional query parameter "range" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "range", r.URL.Query(), &params.Range, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "range"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "range", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMemberByDisease(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMemberCalendar operation middleware
+func (siw *ServerInterfaceWrapper) GetMemberCalendar(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetMemberCalendarParams
+
+	// ------------- Required query parameter "month" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "month", r.URL.Query(), &params.Month, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "month"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "month", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMemberCalendar(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnarchiveMember operation middleware
+func (siw *ServerInterfaceWrapper) UnarchiveMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnarchiveMember(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPrintData operation middleware
+func (siw *ServerInterfaceWrapper) GetPrintData(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPrintDataParams
+
+	// ------------- Optional query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "type", r.URL.Query(), &params.Type, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "type"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "id", r.URL.Query(), &params.Id, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "photos" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "photos", r.URL.Query(), &params.Photos, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "photos"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "photos", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPrintData(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRecords operation middleware
+func (siw *ServerInterfaceWrapper) ListRecords(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRecordsParams
+
+	// ------------- Optional query parameter "memberId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "memberId", r.URL.Query(), &params.MemberId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "memberId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "memberId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "episodeId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "episodeId", r.URL.Query(), &params.EpisodeId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "episodeId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "episodeId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "inbox" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "inbox", r.URL.Query(), &params.Inbox, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "inbox"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "inbox", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "type", r.URL.Query(), &params.Type, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "type"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "flare" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "flare", r.URL.Query(), &params.Flare, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "flare"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "flare", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRecords(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AssignRecords operation middleware
+func (siw *ServerInterfaceWrapper) AssignRecords(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AssignRecords(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteRecord operation middleware
+func (siw *ServerInterfaceWrapper) DeleteRecord(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteRecord(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRecord operation middleware
+func (siw *ServerInterfaceWrapper) GetRecord(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRecord(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateRecord operation middleware
+func (siw *ServerInterfaceWrapper) UpdateRecord(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateRecord(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutRecord operation middleware
+func (siw *ServerInterfaceWrapper) PutRecord(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutRecord(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // Healthz operation middleware
 func (siw *ServerInterfaceWrapper) Healthz(w http.ResponseWriter, r *http.Request) {
@@ -217,8 +2784,1583 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/healthz", wrapper.Healthz)
 	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/auth/login", wrapper.Login)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/auth/logout", wrapper.Logout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/me", wrapper.GetMe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/home", wrapper.GetHome)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/members", wrapper.ListMembers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/members", wrapper.CreateMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/members/{id}", wrapper.DeleteMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/members/{id}", wrapper.GetMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/members/{id}", wrapper.UpdateMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/members/{id}/archive", wrapper.ArchiveMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/members/{id}/unarchive", wrapper.UnarchiveMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/members/{id}/by-disease", wrapper.GetMemberByDisease)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/members/{id}/calendar", wrapper.GetMemberCalendar)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/disease-tags", wrapper.ListDiseaseTags)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/disease-tags", wrapper.CreateDiseaseTag)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/episodes", wrapper.ListEpisodes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/episodes", wrapper.CreateEpisode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/episodes/{id}", wrapper.DeleteEpisode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/episodes/{id}", wrapper.GetEpisode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/episodes/{id}", wrapper.UpdateEpisode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/episodes/{id}/calendar", wrapper.GetEpisodeCalendar)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/episodes/{id}/trend", wrapper.GetEpisodeTrend)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/records", wrapper.ListRecords)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/records/assign", wrapper.AssignRecords)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/records/{id}", wrapper.DeleteRecord)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/records/{id}", wrapper.GetRecord)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/records/{id}", wrapper.UpdateRecord)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/records/{id}", wrapper.PutRecord)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/medications/last", wrapper.GetLastMedication)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/attachments/{id}", wrapper.DeleteAttachment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/attachments/{id}", wrapper.UpdateAttachment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/attachments/{id}", wrapper.UploadAttachment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/attachments/{id}/file", wrapper.GetAttachmentFile)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/attachments/{id}/reprocess", wrapper.ReprocessAttachment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/exports", wrapper.CreateExport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/print-data", wrapper.GetPrintData)
+	})
 
 	return r
+}
+
+type ErrorJSONResponse Error
+
+type DeleteAttachmentRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type DeleteAttachmentResponseObject interface {
+	VisitDeleteAttachmentResponse(w http.ResponseWriter) error
+}
+
+type DeleteAttachment204Response struct {
+}
+
+func (response DeleteAttachment204Response) VisitDeleteAttachmentResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAttachmentdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DeleteAttachmentdefaultJSONResponse) VisitDeleteAttachmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAttachmentRequestObject struct {
+	Id   Id `json:"id"`
+	Body *UpdateAttachmentJSONRequestBody
+}
+
+type UpdateAttachmentResponseObject interface {
+	VisitUpdateAttachmentResponse(w http.ResponseWriter) error
+}
+
+type UpdateAttachment200JSONResponse Attachment
+
+func (response UpdateAttachment200JSONResponse) VisitUpdateAttachmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAttachmentdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UpdateAttachmentdefaultJSONResponse) VisitUpdateAttachmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadAttachmentRequestObject struct {
+	Id   Id `json:"id"`
+	Body *multipart.Reader
+}
+
+type UploadAttachmentResponseObject interface {
+	VisitUploadAttachmentResponse(w http.ResponseWriter) error
+}
+
+type UploadAttachment200JSONResponse Attachment
+
+func (response UploadAttachment200JSONResponse) VisitUploadAttachmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadAttachment201JSONResponse Attachment
+
+func (response UploadAttachment201JSONResponse) VisitUploadAttachmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadAttachmentdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UploadAttachmentdefaultJSONResponse) VisitUploadAttachmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAttachmentFileRequestObject struct {
+	Id     Id `json:"id"`
+	Params GetAttachmentFileParams
+}
+
+type GetAttachmentFileResponseObject interface {
+	VisitGetAttachmentFileResponse(w http.ResponseWriter) error
+}
+
+type GetAttachmentFile200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response GetAttachmentFile200ApplicationoctetStreamResponse) VisitGetAttachmentFileResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetAttachmentFile206ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response GetAttachmentFile206ApplicationoctetStreamResponse) VisitGetAttachmentFileResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(206)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetAttachmentFiledefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetAttachmentFiledefaultJSONResponse) VisitGetAttachmentFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReprocessAttachmentRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type ReprocessAttachmentResponseObject interface {
+	VisitReprocessAttachmentResponse(w http.ResponseWriter) error
+}
+
+type ReprocessAttachment200JSONResponse Attachment
+
+func (response ReprocessAttachment200JSONResponse) VisitReprocessAttachmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReprocessAttachmentdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ReprocessAttachmentdefaultJSONResponse) VisitReprocessAttachmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LoginRequestObject struct {
+	Body *LoginJSONRequestBody
+}
+
+type LoginResponseObject interface {
+	VisitLoginResponse(w http.ResponseWriter) error
+}
+
+type Login200JSONResponse Me
+
+func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogindefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response LogindefaultJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutRequestObject struct {
+	Params LogoutParams
+}
+
+type LogoutResponseObject interface {
+	VisitLogoutResponse(w http.ResponseWriter) error
+}
+
+type Logout204Response struct {
+}
+
+func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type LogoutdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response LogoutdefaultJSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListDiseaseTagsRequestObject struct {
+}
+
+type ListDiseaseTagsResponseObject interface {
+	VisitListDiseaseTagsResponse(w http.ResponseWriter) error
+}
+
+type ListDiseaseTags200JSONResponse []DiseaseTag
+
+func (response ListDiseaseTags200JSONResponse) VisitListDiseaseTagsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListDiseaseTagsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListDiseaseTagsdefaultJSONResponse) VisitListDiseaseTagsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateDiseaseTagRequestObject struct {
+	Body *CreateDiseaseTagJSONRequestBody
+}
+
+type CreateDiseaseTagResponseObject interface {
+	VisitCreateDiseaseTagResponse(w http.ResponseWriter) error
+}
+
+type CreateDiseaseTag200JSONResponse DiseaseTag
+
+func (response CreateDiseaseTag200JSONResponse) VisitCreateDiseaseTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateDiseaseTag201JSONResponse DiseaseTag
+
+func (response CreateDiseaseTag201JSONResponse) VisitCreateDiseaseTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateDiseaseTagdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CreateDiseaseTagdefaultJSONResponse) VisitCreateDiseaseTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEpisodesRequestObject struct {
+	Params ListEpisodesParams
+}
+
+type ListEpisodesResponseObject interface {
+	VisitListEpisodesResponse(w http.ResponseWriter) error
+}
+
+type ListEpisodes200JSONResponse []Episode
+
+func (response ListEpisodes200JSONResponse) VisitListEpisodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEpisodesdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListEpisodesdefaultJSONResponse) VisitListEpisodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateEpisodeRequestObject struct {
+	Body *CreateEpisodeJSONRequestBody
+}
+
+type CreateEpisodeResponseObject interface {
+	VisitCreateEpisodeResponse(w http.ResponseWriter) error
+}
+
+type CreateEpisode201JSONResponse Episode
+
+func (response CreateEpisode201JSONResponse) VisitCreateEpisodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateEpisodedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CreateEpisodedefaultJSONResponse) VisitCreateEpisodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteEpisodeRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type DeleteEpisodeResponseObject interface {
+	VisitDeleteEpisodeResponse(w http.ResponseWriter) error
+}
+
+type DeleteEpisode204Response struct {
+}
+
+func (response DeleteEpisode204Response) VisitDeleteEpisodeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteEpisodedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DeleteEpisodedefaultJSONResponse) VisitDeleteEpisodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEpisodeRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type GetEpisodeResponseObject interface {
+	VisitGetEpisodeResponse(w http.ResponseWriter) error
+}
+
+type GetEpisode200JSONResponse Episode
+
+func (response GetEpisode200JSONResponse) VisitGetEpisodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEpisodedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetEpisodedefaultJSONResponse) VisitGetEpisodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEpisodeRequestObject struct {
+	Id   Id `json:"id"`
+	Body *UpdateEpisodeJSONRequestBody
+}
+
+type UpdateEpisodeResponseObject interface {
+	VisitUpdateEpisodeResponse(w http.ResponseWriter) error
+}
+
+type UpdateEpisode200JSONResponse Episode
+
+func (response UpdateEpisode200JSONResponse) VisitUpdateEpisodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEpisodedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UpdateEpisodedefaultJSONResponse) VisitUpdateEpisodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEpisodeCalendarRequestObject struct {
+	Id     Id `json:"id"`
+	Params GetEpisodeCalendarParams
+}
+
+type GetEpisodeCalendarResponseObject interface {
+	VisitGetEpisodeCalendarResponse(w http.ResponseWriter) error
+}
+
+type GetEpisodeCalendar200JSONResponse Calendar
+
+func (response GetEpisodeCalendar200JSONResponse) VisitGetEpisodeCalendarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEpisodeCalendardefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetEpisodeCalendardefaultJSONResponse) VisitGetEpisodeCalendarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEpisodeTrendRequestObject struct {
+	Id     Id `json:"id"`
+	Params GetEpisodeTrendParams
+}
+
+type GetEpisodeTrendResponseObject interface {
+	VisitGetEpisodeTrendResponse(w http.ResponseWriter) error
+}
+
+type GetEpisodeTrend200JSONResponse Trend
+
+func (response GetEpisodeTrend200JSONResponse) VisitGetEpisodeTrendResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEpisodeTrenddefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetEpisodeTrenddefaultJSONResponse) VisitGetEpisodeTrendResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateExportRequestObject struct {
+	Body *CreateExportJSONRequestBody
+}
+
+type CreateExportResponseObject interface {
+	VisitCreateExportResponse(w http.ResponseWriter) error
+}
+
+type CreateExport200ResponseHeaders struct {
+	ContentDisposition *string
+}
+
+type CreateExport200ApplicationpdfResponse struct {
+	Body          io.Reader
+	Headers       CreateExport200ResponseHeaders
+	ContentLength int64
+}
+
+func (response CreateExport200ApplicationpdfResponse) VisitCreateExportResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/pdf")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.ContentDisposition != nil {
+		w.Header().Set("Content-Disposition", fmt.Sprint(*response.Headers.ContentDisposition))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type CreateExportdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CreateExportdefaultJSONResponse) VisitCreateExportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHomeRequestObject struct {
+}
+
+type GetHomeResponseObject interface {
+	VisitGetHomeResponse(w http.ResponseWriter) error
+}
+
+type GetHome200JSONResponse Home
+
+func (response GetHome200JSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHomedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetHomedefaultJSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMeRequestObject struct {
+}
+
+type GetMeResponseObject interface {
+	VisitGetMeResponse(w http.ResponseWriter) error
+}
+
+type GetMe200JSONResponse Me
+
+func (response GetMe200JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetMedefaultJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLastMedicationRequestObject struct {
+	Params GetLastMedicationParams
+}
+
+type GetLastMedicationResponseObject interface {
+	VisitGetLastMedicationResponse(w http.ResponseWriter) error
+}
+
+type GetLastMedication200JSONResponse LastMedication
+
+func (response GetLastMedication200JSONResponse) VisitGetLastMedicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLastMedicationdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetLastMedicationdefaultJSONResponse) VisitGetLastMedicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMembersRequestObject struct {
+	Params ListMembersParams
+}
+
+type ListMembersResponseObject interface {
+	VisitListMembersResponse(w http.ResponseWriter) error
+}
+
+type ListMembers200JSONResponse []Member
+
+func (response ListMembers200JSONResponse) VisitListMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMembersdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListMembersdefaultJSONResponse) VisitListMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMemberRequestObject struct {
+	Body *CreateMemberJSONRequestBody
+}
+
+type CreateMemberResponseObject interface {
+	VisitCreateMemberResponse(w http.ResponseWriter) error
+}
+
+type CreateMember201JSONResponse Member
+
+func (response CreateMember201JSONResponse) VisitCreateMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMemberdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CreateMemberdefaultJSONResponse) VisitCreateMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMemberRequestObject struct {
+	Id     Id `json:"id"`
+	Params DeleteMemberParams
+}
+
+type DeleteMemberResponseObject interface {
+	VisitDeleteMemberResponse(w http.ResponseWriter) error
+}
+
+type DeleteMember204Response struct {
+}
+
+func (response DeleteMember204Response) VisitDeleteMemberResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteMemberdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DeleteMemberdefaultJSONResponse) VisitDeleteMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMemberRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type GetMemberResponseObject interface {
+	VisitGetMemberResponse(w http.ResponseWriter) error
+}
+
+type GetMember200JSONResponse Member
+
+func (response GetMember200JSONResponse) VisitGetMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMemberdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetMemberdefaultJSONResponse) VisitGetMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMemberRequestObject struct {
+	Id   Id `json:"id"`
+	Body *UpdateMemberJSONRequestBody
+}
+
+type UpdateMemberResponseObject interface {
+	VisitUpdateMemberResponse(w http.ResponseWriter) error
+}
+
+type UpdateMember200JSONResponse Member
+
+func (response UpdateMember200JSONResponse) VisitUpdateMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMemberdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UpdateMemberdefaultJSONResponse) VisitUpdateMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ArchiveMemberRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type ArchiveMemberResponseObject interface {
+	VisitArchiveMemberResponse(w http.ResponseWriter) error
+}
+
+type ArchiveMember200JSONResponse Member
+
+func (response ArchiveMember200JSONResponse) VisitArchiveMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ArchiveMemberdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ArchiveMemberdefaultJSONResponse) VisitArchiveMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMemberByDiseaseRequestObject struct {
+	Id     Id `json:"id"`
+	Params GetMemberByDiseaseParams
+}
+
+type GetMemberByDiseaseResponseObject interface {
+	VisitGetMemberByDiseaseResponse(w http.ResponseWriter) error
+}
+
+type GetMemberByDisease200JSONResponse ByDisease
+
+func (response GetMemberByDisease200JSONResponse) VisitGetMemberByDiseaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMemberByDiseasedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetMemberByDiseasedefaultJSONResponse) VisitGetMemberByDiseaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMemberCalendarRequestObject struct {
+	Id     Id `json:"id"`
+	Params GetMemberCalendarParams
+}
+
+type GetMemberCalendarResponseObject interface {
+	VisitGetMemberCalendarResponse(w http.ResponseWriter) error
+}
+
+type GetMemberCalendar200JSONResponse Calendar
+
+func (response GetMemberCalendar200JSONResponse) VisitGetMemberCalendarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMemberCalendardefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetMemberCalendardefaultJSONResponse) VisitGetMemberCalendarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnarchiveMemberRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type UnarchiveMemberResponseObject interface {
+	VisitUnarchiveMemberResponse(w http.ResponseWriter) error
+}
+
+type UnarchiveMember200JSONResponse Member
+
+func (response UnarchiveMember200JSONResponse) VisitUnarchiveMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnarchiveMemberdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UnarchiveMemberdefaultJSONResponse) VisitUnarchiveMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPrintDataRequestObject struct {
+	Params GetPrintDataParams
+}
+
+type GetPrintDataResponseObject interface {
+	VisitGetPrintDataResponse(w http.ResponseWriter) error
+}
+
+type GetPrintData200JSONResponse PrintData
+
+func (response GetPrintData200JSONResponse) VisitGetPrintDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPrintDatadefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetPrintDatadefaultJSONResponse) VisitGetPrintDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRecordsRequestObject struct {
+	Params ListRecordsParams
+}
+
+type ListRecordsResponseObject interface {
+	VisitListRecordsResponse(w http.ResponseWriter) error
+}
+
+type ListRecords200JSONResponse RecordPage
+
+func (response ListRecords200JSONResponse) VisitListRecordsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRecordsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListRecordsdefaultJSONResponse) VisitListRecordsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AssignRecordsRequestObject struct {
+	Body *AssignRecordsJSONRequestBody
+}
+
+type AssignRecordsResponseObject interface {
+	VisitAssignRecordsResponse(w http.ResponseWriter) error
+}
+
+type AssignRecords200JSONResponse AssignResult
+
+func (response AssignRecords200JSONResponse) VisitAssignRecordsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AssignRecordsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response AssignRecordsdefaultJSONResponse) VisitAssignRecordsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteRecordRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type DeleteRecordResponseObject interface {
+	VisitDeleteRecordResponse(w http.ResponseWriter) error
+}
+
+type DeleteRecord204Response struct {
+}
+
+func (response DeleteRecord204Response) VisitDeleteRecordResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteRecorddefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DeleteRecorddefaultJSONResponse) VisitDeleteRecordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRecordRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type GetRecordResponseObject interface {
+	VisitGetRecordResponse(w http.ResponseWriter) error
+}
+
+type GetRecord200JSONResponse Record
+
+func (response GetRecord200JSONResponse) VisitGetRecordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRecorddefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetRecorddefaultJSONResponse) VisitGetRecordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRecordRequestObject struct {
+	Id   Id `json:"id"`
+	Body *UpdateRecordJSONRequestBody
+}
+
+type UpdateRecordResponseObject interface {
+	VisitUpdateRecordResponse(w http.ResponseWriter) error
+}
+
+type UpdateRecord200JSONResponse Record
+
+func (response UpdateRecord200JSONResponse) VisitUpdateRecordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRecorddefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UpdateRecorddefaultJSONResponse) VisitUpdateRecordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutRecordRequestObject struct {
+	Id   Id `json:"id"`
+	Body *PutRecordJSONRequestBody
+}
+
+type PutRecordResponseObject interface {
+	VisitPutRecordResponse(w http.ResponseWriter) error
+}
+
+type PutRecord200JSONResponse Record
+
+func (response PutRecord200JSONResponse) VisitPutRecordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutRecord201JSONResponse Record
+
+func (response PutRecord201JSONResponse) VisitPutRecordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutRecorddefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response PutRecorddefaultJSONResponse) VisitPutRecordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type HealthzRequestObject struct {
@@ -258,6 +4400,114 @@ func (response Healthz503JSONResponse) VisitHealthzResponse(w http.ResponseWrite
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+
+	// (DELETE /api/attachments/{id})
+	DeleteAttachment(ctx context.Context, request DeleteAttachmentRequestObject) (DeleteAttachmentResponseObject, error)
+	// UpdateAttachment 修改语音补充文字或顺序
+	// (PATCH /api/attachments/{id})
+	UpdateAttachment(ctx context.Context, request UpdateAttachmentRequestObject) (UpdateAttachmentResponseObject, error)
+	// UploadAttachment 上传附件（幂等）。照片和头像须为 JPEG；语音上传后异步转码
+	// (PUT /api/attachments/{id})
+	UploadAttachment(ctx context.Context, request UploadAttachmentRequestObject) (UploadAttachmentResponseObject, error)
+	// GetAttachmentFile 读取附件文件，支持 Range（语音可拖动）
+	// (GET /api/attachments/{id}/file)
+	GetAttachmentFile(ctx context.Context, request GetAttachmentFileRequestObject) (GetAttachmentFileResponseObject, error)
+	// ReprocessAttachment 转码失败的语音重新处理
+	// (POST /api/attachments/{id}/reprocess)
+	ReprocessAttachment(ctx context.Context, request ReprocessAttachmentRequestObject) (ReprocessAttachmentResponseObject, error)
+	// Login 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
+	// (POST /api/auth/login)
+	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+	// Logout 注销当前会话；all=true 注销该账号的全部会话
+	// (POST /api/auth/logout)
+	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
+	// ListDiseaseTags 病种标签：系统预置 + 本家庭自定义
+	// (GET /api/disease-tags)
+	ListDiseaseTags(ctx context.Context, request ListDiseaseTagsRequestObject) (ListDiseaseTagsResponseObject, error)
+	// CreateDiseaseTag 新增自定义病种；同名已存在时返回已有标签
+	// (POST /api/disease-tags)
+	CreateDiseaseTag(ctx context.Context, request CreateDiseaseTagRequestObject) (CreateDiseaseTagResponseObject, error)
+	// ListEpisodes 病程列表，按最近一条记录时间倒序
+	// (GET /api/episodes)
+	ListEpisodes(ctx context.Context, request ListEpisodesRequestObject) (ListEpisodesResponseObject, error)
+
+	// (POST /api/episodes)
+	CreateEpisode(ctx context.Context, request CreateEpisodeRequestObject) (CreateEpisodeResponseObject, error)
+	// DeleteEpisode 删除病程，其中的记录退回待整理
+	// (DELETE /api/episodes/{id})
+	DeleteEpisode(ctx context.Context, request DeleteEpisodeRequestObject) (DeleteEpisodeResponseObject, error)
+
+	// (GET /api/episodes/{id})
+	GetEpisode(ctx context.Context, request GetEpisodeRequestObject) (GetEpisodeResponseObject, error)
+	// UpdateEpisode 编辑病程与切换状态；短期可转长期（进行中→治疗中，已康复→稳定期）
+	// (PATCH /api/episodes/{id})
+	UpdateEpisode(ctx context.Context, request UpdateEpisodeRequestObject) (UpdateEpisodeResponseObject, error)
+	// GetEpisodeCalendar 病程一个月内每天各类型的记录数和最高症状程度
+	// (GET /api/episodes/{id}/calendar)
+	GetEpisodeCalendar(ctx context.Context, request GetEpisodeCalendarRequestObject) (GetEpisodeCalendarResponseObject, error)
+	// GetEpisodeTrend 体温和症状程度的时间序列
+	// (GET /api/episodes/{id}/trend)
+	GetEpisodeTrend(ctx context.Context, request GetEpisodeTrendRequestObject) (GetEpisodeTrendResponseObject, error)
+	// CreateExport 生成 PDF 报告，同步返回文件
+	// (POST /api/exports)
+	CreateExport(ctx context.Context, request CreateExportRequestObject) (CreateExportResponseObject, error)
+	// GetHome 首页与家庭总览的聚合数据
+	// (GET /api/home)
+	GetHome(ctx context.Context, request GetHomeRequestObject) (GetHomeResponseObject, error)
+	// GetMe 当前账号和家庭
+	// (GET /api/me)
+	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// GetLastMedication 同一成员同一种药上次的服用时间，用于“上次服用”提示
+	// (GET /api/medications/last)
+	GetLastMedication(ctx context.Context, request GetLastMedicationRequestObject) (GetLastMedicationResponseObject, error)
+
+	// (GET /api/members)
+	ListMembers(ctx context.Context, request ListMembersRequestObject) (ListMembersResponseObject, error)
+
+	// (POST /api/members)
+	CreateMember(ctx context.Context, request CreateMemberRequestObject) (CreateMemberResponseObject, error)
+	// DeleteMember 删除成员及其全部病程、记录和附件（不可恢复，需带 confirm=true）
+	// (DELETE /api/members/{id})
+	DeleteMember(ctx context.Context, request DeleteMemberRequestObject) (DeleteMemberResponseObject, error)
+
+	// (GET /api/members/{id})
+	GetMember(ctx context.Context, request GetMemberRequestObject) (GetMemberResponseObject, error)
+
+	// (PATCH /api/members/{id})
+	UpdateMember(ctx context.Context, request UpdateMemberRequestObject) (UpdateMemberResponseObject, error)
+	// ArchiveMember 归档：数据保留，不再出现在快速切换中
+	// (POST /api/members/{id}/archive)
+	ArchiveMember(ctx context.Context, request ArchiveMemberRequestObject) (ArchiveMemberResponseObject, error)
+	// GetMemberByDisease 成员主页“按病种”视图：同一病种的全部病程及汇总
+	// (GET /api/members/{id}/by-disease)
+	GetMemberByDisease(ctx context.Context, request GetMemberByDiseaseRequestObject) (GetMemberByDiseaseResponseObject, error)
+	// GetMemberCalendar 成员一个月内每天各类型的记录数（跨病程）
+	// (GET /api/members/{id}/calendar)
+	GetMemberCalendar(ctx context.Context, request GetMemberCalendarRequestObject) (GetMemberCalendarResponseObject, error)
+
+	// (POST /api/members/{id}/unarchive)
+	UnarchiveMember(ctx context.Context, request UnarchiveMemberRequestObject) (UnarchiveMemberResponseObject, error)
+	// GetPrintData 打印页取数
+	// (GET /api/print-data)
+	GetPrintData(ctx context.Context, request GetPrintDataRequestObject) (GetPrintDataResponseObject, error)
+	// ListRecords 统一的记录查询，覆盖时间线、待整理、按类型筛选和搜索；按发生时间倒序
+	// (GET /api/records)
+	ListRecords(ctx context.Context, request ListRecordsRequestObject) (ListRecordsResponseObject, error)
+	// AssignRecords 批量归入病程；episodeId 为 null 表示移回待整理；可带 newEpisode 同时新建
+	// (POST /api/records/assign)
+	AssignRecords(ctx context.Context, request AssignRecordsRequestObject) (AssignRecordsResponseObject, error)
+	// DeleteRecord 删除记录及其附件
+	// (DELETE /api/records/{id})
+	DeleteRecord(ctx context.Context, request DeleteRecordRequestObject) (DeleteRecordResponseObject, error)
+
+	// (GET /api/records/{id})
+	GetRecord(ctx context.Context, request GetRecordRequestObject) (GetRecordResponseObject, error)
+
+	// (PATCH /api/records/{id})
+	UpdateRecord(ctx context.Context, request UpdateRecordRequestObject) (UpdateRecordResponseObject, error)
+	// PutRecord 创建记录（幂等）。ID 已存在时直接返回已有记录，不做修改
+	// (PUT /api/records/{id})
+	PutRecord(ctx context.Context, request PutRecordRequestObject) (PutRecordResponseObject, error)
 	// Healthz 健康检查（数据库、Gotenberg 连通性），供外部拨测使用
 	// (GET /healthz)
 	Healthz(ctx context.Context, request HealthzRequestObject) (HealthzResponseObject, error)
@@ -300,6 +4550,1014 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// DeleteAttachment operation middleware
+func (sh *strictHandler) DeleteAttachment(w http.ResponseWriter, r *http.Request, id Id) {
+	var request DeleteAttachmentRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAttachment(ctx, request.(DeleteAttachmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAttachment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAttachmentResponseObject); ok {
+		if err := validResponse.VisitDeleteAttachmentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateAttachment operation middleware
+func (sh *strictHandler) UpdateAttachment(w http.ResponseWriter, r *http.Request, id Id) {
+	var request UpdateAttachmentRequestObject
+
+	request.Id = id
+
+	var body UpdateAttachmentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateAttachment(ctx, request.(UpdateAttachmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateAttachment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateAttachmentResponseObject); ok {
+		if err := validResponse.VisitUpdateAttachmentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UploadAttachment operation middleware
+func (sh *strictHandler) UploadAttachment(w http.ResponseWriter, r *http.Request, id Id) {
+	var request UploadAttachmentRequestObject
+
+	request.Id = id
+
+	if reader, err := r.MultipartReader(); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode multipart body: %w", err))
+		return
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadAttachment(ctx, request.(UploadAttachmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadAttachment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UploadAttachmentResponseObject); ok {
+		if err := validResponse.VisitUploadAttachmentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAttachmentFile operation middleware
+func (sh *strictHandler) GetAttachmentFile(w http.ResponseWriter, r *http.Request, id Id, params GetAttachmentFileParams) {
+	var request GetAttachmentFileRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAttachmentFile(ctx, request.(GetAttachmentFileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAttachmentFile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAttachmentFileResponseObject); ok {
+		if err := validResponse.VisitGetAttachmentFileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReprocessAttachment operation middleware
+func (sh *strictHandler) ReprocessAttachment(w http.ResponseWriter, r *http.Request, id Id) {
+	var request ReprocessAttachmentRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReprocessAttachment(ctx, request.(ReprocessAttachmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReprocessAttachment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReprocessAttachmentResponseObject); ok {
+		if err := validResponse.VisitReprocessAttachmentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Login operation middleware
+func (sh *strictHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var request LoginRequestObject
+
+	var body LoginJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Login(ctx, request.(LoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Login")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LoginResponseObject); ok {
+		if err := validResponse.VisitLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Logout operation middleware
+func (sh *strictHandler) Logout(w http.ResponseWriter, r *http.Request, params LogoutParams) {
+	var request LogoutRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Logout(ctx, request.(LogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Logout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LogoutResponseObject); ok {
+		if err := validResponse.VisitLogoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListDiseaseTags operation middleware
+func (sh *strictHandler) ListDiseaseTags(w http.ResponseWriter, r *http.Request) {
+	var request ListDiseaseTagsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListDiseaseTags(ctx, request.(ListDiseaseTagsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListDiseaseTags")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListDiseaseTagsResponseObject); ok {
+		if err := validResponse.VisitListDiseaseTagsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateDiseaseTag operation middleware
+func (sh *strictHandler) CreateDiseaseTag(w http.ResponseWriter, r *http.Request) {
+	var request CreateDiseaseTagRequestObject
+
+	var body CreateDiseaseTagJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateDiseaseTag(ctx, request.(CreateDiseaseTagRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateDiseaseTag")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateDiseaseTagResponseObject); ok {
+		if err := validResponse.VisitCreateDiseaseTagResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListEpisodes operation middleware
+func (sh *strictHandler) ListEpisodes(w http.ResponseWriter, r *http.Request, params ListEpisodesParams) {
+	var request ListEpisodesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListEpisodes(ctx, request.(ListEpisodesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListEpisodes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListEpisodesResponseObject); ok {
+		if err := validResponse.VisitListEpisodesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateEpisode operation middleware
+func (sh *strictHandler) CreateEpisode(w http.ResponseWriter, r *http.Request) {
+	var request CreateEpisodeRequestObject
+
+	var body CreateEpisodeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateEpisode(ctx, request.(CreateEpisodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateEpisode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateEpisodeResponseObject); ok {
+		if err := validResponse.VisitCreateEpisodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteEpisode operation middleware
+func (sh *strictHandler) DeleteEpisode(w http.ResponseWriter, r *http.Request, id Id) {
+	var request DeleteEpisodeRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteEpisode(ctx, request.(DeleteEpisodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteEpisode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteEpisodeResponseObject); ok {
+		if err := validResponse.VisitDeleteEpisodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetEpisode operation middleware
+func (sh *strictHandler) GetEpisode(w http.ResponseWriter, r *http.Request, id Id) {
+	var request GetEpisodeRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetEpisode(ctx, request.(GetEpisodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetEpisode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetEpisodeResponseObject); ok {
+		if err := validResponse.VisitGetEpisodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateEpisode operation middleware
+func (sh *strictHandler) UpdateEpisode(w http.ResponseWriter, r *http.Request, id Id) {
+	var request UpdateEpisodeRequestObject
+
+	request.Id = id
+
+	var body UpdateEpisodeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateEpisode(ctx, request.(UpdateEpisodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateEpisode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateEpisodeResponseObject); ok {
+		if err := validResponse.VisitUpdateEpisodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetEpisodeCalendar operation middleware
+func (sh *strictHandler) GetEpisodeCalendar(w http.ResponseWriter, r *http.Request, id Id, params GetEpisodeCalendarParams) {
+	var request GetEpisodeCalendarRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetEpisodeCalendar(ctx, request.(GetEpisodeCalendarRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetEpisodeCalendar")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetEpisodeCalendarResponseObject); ok {
+		if err := validResponse.VisitGetEpisodeCalendarResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetEpisodeTrend operation middleware
+func (sh *strictHandler) GetEpisodeTrend(w http.ResponseWriter, r *http.Request, id Id, params GetEpisodeTrendParams) {
+	var request GetEpisodeTrendRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetEpisodeTrend(ctx, request.(GetEpisodeTrendRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetEpisodeTrend")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetEpisodeTrendResponseObject); ok {
+		if err := validResponse.VisitGetEpisodeTrendResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateExport operation middleware
+func (sh *strictHandler) CreateExport(w http.ResponseWriter, r *http.Request) {
+	var request CreateExportRequestObject
+
+	var body CreateExportJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateExport(ctx, request.(CreateExportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateExport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateExportResponseObject); ok {
+		if err := validResponse.VisitCreateExportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetHome operation middleware
+func (sh *strictHandler) GetHome(w http.ResponseWriter, r *http.Request) {
+	var request GetHomeRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetHome(ctx, request.(GetHomeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetHome")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetHomeResponseObject); ok {
+		if err := validResponse.VisitGetHomeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMe operation middleware
+func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	var request GetMeRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMe(ctx, request.(GetMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMeResponseObject); ok {
+		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetLastMedication operation middleware
+func (sh *strictHandler) GetLastMedication(w http.ResponseWriter, r *http.Request, params GetLastMedicationParams) {
+	var request GetLastMedicationRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLastMedication(ctx, request.(GetLastMedicationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLastMedication")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLastMedicationResponseObject); ok {
+		if err := validResponse.VisitGetLastMedicationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMembers operation middleware
+func (sh *strictHandler) ListMembers(w http.ResponseWriter, r *http.Request, params ListMembersParams) {
+	var request ListMembersRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMembers(ctx, request.(ListMembersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMembers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMembersResponseObject); ok {
+		if err := validResponse.VisitListMembersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateMember operation middleware
+func (sh *strictHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
+	var request CreateMemberRequestObject
+
+	var body CreateMemberJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateMember(ctx, request.(CreateMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateMemberResponseObject); ok {
+		if err := validResponse.VisitCreateMemberResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteMember operation middleware
+func (sh *strictHandler) DeleteMember(w http.ResponseWriter, r *http.Request, id Id, params DeleteMemberParams) {
+	var request DeleteMemberRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteMember(ctx, request.(DeleteMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteMemberResponseObject); ok {
+		if err := validResponse.VisitDeleteMemberResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMember operation middleware
+func (sh *strictHandler) GetMember(w http.ResponseWriter, r *http.Request, id Id) {
+	var request GetMemberRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMember(ctx, request.(GetMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMemberResponseObject); ok {
+		if err := validResponse.VisitGetMemberResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateMember operation middleware
+func (sh *strictHandler) UpdateMember(w http.ResponseWriter, r *http.Request, id Id) {
+	var request UpdateMemberRequestObject
+
+	request.Id = id
+
+	var body UpdateMemberJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateMember(ctx, request.(UpdateMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateMemberResponseObject); ok {
+		if err := validResponse.VisitUpdateMemberResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ArchiveMember operation middleware
+func (sh *strictHandler) ArchiveMember(w http.ResponseWriter, r *http.Request, id Id) {
+	var request ArchiveMemberRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ArchiveMember(ctx, request.(ArchiveMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ArchiveMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ArchiveMemberResponseObject); ok {
+		if err := validResponse.VisitArchiveMemberResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMemberByDisease operation middleware
+func (sh *strictHandler) GetMemberByDisease(w http.ResponseWriter, r *http.Request, id Id, params GetMemberByDiseaseParams) {
+	var request GetMemberByDiseaseRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMemberByDisease(ctx, request.(GetMemberByDiseaseRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMemberByDisease")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMemberByDiseaseResponseObject); ok {
+		if err := validResponse.VisitGetMemberByDiseaseResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMemberCalendar operation middleware
+func (sh *strictHandler) GetMemberCalendar(w http.ResponseWriter, r *http.Request, id Id, params GetMemberCalendarParams) {
+	var request GetMemberCalendarRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMemberCalendar(ctx, request.(GetMemberCalendarRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMemberCalendar")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMemberCalendarResponseObject); ok {
+		if err := validResponse.VisitGetMemberCalendarResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UnarchiveMember operation middleware
+func (sh *strictHandler) UnarchiveMember(w http.ResponseWriter, r *http.Request, id Id) {
+	var request UnarchiveMemberRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnarchiveMember(ctx, request.(UnarchiveMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnarchiveMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnarchiveMemberResponseObject); ok {
+		if err := validResponse.VisitUnarchiveMemberResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPrintData operation middleware
+func (sh *strictHandler) GetPrintData(w http.ResponseWriter, r *http.Request, params GetPrintDataParams) {
+	var request GetPrintDataRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPrintData(ctx, request.(GetPrintDataRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPrintData")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPrintDataResponseObject); ok {
+		if err := validResponse.VisitGetPrintDataResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListRecords operation middleware
+func (sh *strictHandler) ListRecords(w http.ResponseWriter, r *http.Request, params ListRecordsParams) {
+	var request ListRecordsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRecords(ctx, request.(ListRecordsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRecords")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListRecordsResponseObject); ok {
+		if err := validResponse.VisitListRecordsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AssignRecords operation middleware
+func (sh *strictHandler) AssignRecords(w http.ResponseWriter, r *http.Request) {
+	var request AssignRecordsRequestObject
+
+	var body AssignRecordsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AssignRecords(ctx, request.(AssignRecordsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AssignRecords")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AssignRecordsResponseObject); ok {
+		if err := validResponse.VisitAssignRecordsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteRecord operation middleware
+func (sh *strictHandler) DeleteRecord(w http.ResponseWriter, r *http.Request, id Id) {
+	var request DeleteRecordRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteRecord(ctx, request.(DeleteRecordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteRecord")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteRecordResponseObject); ok {
+		if err := validResponse.VisitDeleteRecordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRecord operation middleware
+func (sh *strictHandler) GetRecord(w http.ResponseWriter, r *http.Request, id Id) {
+	var request GetRecordRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRecord(ctx, request.(GetRecordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRecord")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRecordResponseObject); ok {
+		if err := validResponse.VisitGetRecordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateRecord operation middleware
+func (sh *strictHandler) UpdateRecord(w http.ResponseWriter, r *http.Request, id Id) {
+	var request UpdateRecordRequestObject
+
+	request.Id = id
+
+	var body UpdateRecordJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateRecord(ctx, request.(UpdateRecordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateRecord")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateRecordResponseObject); ok {
+		if err := validResponse.VisitUpdateRecordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutRecord operation middleware
+func (sh *strictHandler) PutRecord(w http.ResponseWriter, r *http.Request, id Id) {
+	var request PutRecordRequestObject
+
+	request.Id = id
+
+	var body PutRecordJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutRecord(ctx, request.(PutRecordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutRecord")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutRecordResponseObject); ok {
+		if err := validResponse.VisitPutRecordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // Healthz operation middleware

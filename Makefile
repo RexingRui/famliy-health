@@ -6,15 +6,20 @@ export $(shell sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' .env)
 endif
 
 .PHONY: help gen gen-sql gen-api gen-web dev dev-deps dev-down dev-api dev-web \
-	test test-go test-web lint build web-build web-stub docker-build
+	test test-go test-web test-integration user-create lint build web-build web-stub \
+	docker-init deploy backup
 
 help:
-	@echo "make gen         regenerate sqlc, oapi-codegen and openapi-typescript output"
-	@echo "make dev         start postgres + gotenberg, backend (air) and frontend (vite)"
-	@echo "make test        go test + vitest"
-	@echo "make lint        go vet + gofmt + oxlint + tsc"
-	@echo "make build       build frontend, then bin/healthlog with it embedded"
-	@echo "make docker-build build the production image"
+	@echo "make gen              regenerate sqlc, oapi-codegen and openapi-typescript output"
+	@echo "make dev              start postgres + gotenberg, backend (air) and frontend (vite)"
+	@echo "make user-create USERNAME=me  create a login account in the dev database"
+	@echo "make test             unit tests (go + vitest)"
+	@echo "make test-integration API tests against the dev PostgreSQL (TEST_DATABASE_URL)"
+	@echo "make lint             go vet + gofmt + oxlint + tsc"
+	@echo "make build            build frontend, then bin/healthlog with it embedded"
+	@echo "sudo make docker-init create data dirs owned by the container user (server)"
+	@echo "make deploy           pull, build, replace, self-check, roll back on failure (server)"
+	@echo "make backup           pg_dump + attachment mirror (server)"
 
 ## Code generation — generated files are committed; CI checks they are up to date.
 gen: gen-sql gen-api gen-web
@@ -45,6 +50,10 @@ dev-api: web-stub
 dev-web:
 	cd web && npm run dev
 
+user-create: web-stub
+	@test -n "$(USERNAME)" || { echo "usage: make user-create USERNAME=me"; exit 1; }
+	go run ./cmd/healthlog user create --username $(USERNAME)
+
 ## Checks
 test: test-go test-web
 
@@ -53,6 +62,10 @@ test-go: web-stub
 
 test-web:
 	cd web && npm test
+
+test-integration: web-stub
+	@test -n "$(TEST_DATABASE_URL)" || { echo "set TEST_DATABASE_URL (see .env.example)"; exit 1; }
+	go test -count=1 ./internal/apitest/...
 
 lint: web-stub
 	go vet ./...
@@ -70,5 +83,13 @@ web-stub:
 build: web-build
 	CGO_ENABLED=0 go build -trimpath -o bin/healthlog ./cmd/healthlog
 
-docker-build:
-	docker build -f deploy/Dockerfile -t healthlog:latest .
+## Server
+docker-init:
+	mkdir -p data/storage data/postgres backup
+	chown -R 10001:10001 data/storage
+
+deploy:
+	./scripts/deploy.sh
+
+backup:
+	./scripts/backup.sh
