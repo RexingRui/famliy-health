@@ -251,7 +251,7 @@ curl -s  "https://$D/health/api/me"                                          # {
 curl -sI "https://$D/health/" | grep -i alt-svc || echo "没有 alt-svc，正确"
 ```
 
-最后用手机 Safari 和电脑浏览器各打开一次 `https://<域名>/health/`，用 2.5 建的账号登录（目前前端页面还是占位页，能登录说明链路通了）。
+最后用手机 Safari 和电脑浏览器各打开一次 `https://<域名>/health/`，用 2.5 建的账号登录，能看到首页（还没有成员）。真机上的录音、拍照等验证按上线清单阶段 3 做。
 crab 的小程序也打开看一眼订单列表。
 
 ## 6. 出问题怎么回滚

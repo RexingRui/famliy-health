@@ -23,8 +23,8 @@ func newTestRouterAt(base string, checks map[string]handler.Checker) http.Handle
 		BasePath: base,
 		Server:   handler.New(handler.Options{Checks: checks}),
 		Web: fstest.MapFS{
-			"index.html":    {Data: []byte("<html>app</html>")},
-			"assets/app.js": {Data: []byte("console.log(1)")},
+			"index.html":           {Data: []byte("<html>app</html>")},
+			"assets/app.js":        {Data: []byte("console.log(1)")},
 			"manifest.webmanifest": {Data: []byte("{}")},
 		},
 		PublicBaseURL: "https://health.example.com",

@@ -4,7 +4,7 @@
 
 家庭自用的病程记录本，不做问诊，不给医疗建议。核心价值是：就诊时病史讲得清，复诊时有据可查，报销时材料齐全。
 
-> 当前状态：**后端 MVP 接口已完成**（登录、成员、病程、记录、附件与语音转码、浏览视图、PDF 导出、备份与部署脚本）；**前端页面已完成**，目前对着浏览器内的 mock 后端开发（`npm run dev:mock`），还没和真实后端联调，见「前后端联调」。到上线为止的全部工作按 [上线清单](https://claude.ai/artifact/4H5RhLdHnzSyxDtMWQgozj) 推进。
+> 当前状态：**后端 MVP 接口已完成**（登录、成员、病程、记录、附件与语音转码、浏览视图、PDF 导出、备份与部署脚本）；**前端页面已完成并与真实后端联调**，见「前后端联调」；还没部署到服务器，也没做真机测试。到上线为止的全部工作按 [上线清单](https://claude.ai/artifact/4H5RhLdHnzSyxDtMWQgozj) 推进。
 
 ## 文档
 
@@ -144,7 +144,7 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 | 病程 | `/episodes` 增删改查、`/calendar`、`/trend` | 状态随类型校验；短期可转长期；病种变了、名称仍是默认名时自动改名；删除后记录回到待整理 |
 | 记录 | `GET /records`、`PUT/GET/PATCH/DELETE /records/{id}`、`POST /records/assign`、`GET /medications/last` | PUT 幂等；可随记录新建病程；类型与字段不匹配返回 422；游标分页；搜索覆盖正文、语音补充文字、药名、医院 |
 | 附件 | `PUT /attachments/{id}`（multipart）、`PATCH/DELETE`、`GET /file`、`POST /reprocess` | 按文件头识别格式；照片≤9 张/条；语音异步转 m4a；文件支持 Range |
-| 报告 | `POST /exports`、`GET /print-data` | Gotenberg 凭 5 分钟 HMAC 打印令牌取数和取图；预览凭登录态 |
+| 报告 | `POST /exports`、`GET /print-data` | Gotenberg 凭 5 分钟 HMAC 打印令牌取数和取图；预览凭登录态；`sections` 限定病程报告包含的部分 |
 
 ## 开发约定
 
@@ -178,9 +178,10 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 - 表单用组件内状态（`features/record/form.ts` 负责校验和组装 `RecordCreate` / `RecordPatch`），没有引入 react-hook-form。
 - 照片在前端用 canvas 压到长边 2000px、JPEG 0.85（顺带去掉 EXIF 定位）；HEIC 依赖浏览器自身解码（iOS Safari 可以），不另引 heic2any。
 - 默认病程规则在 `form.ts` 的 `defaultEpisode`：该成员未结束的病程按最近记录排序，一个就选中，多个选第一个并展开，没有就“暂不归类”。
-- 首页和家庭总览只拿 `/api/home` 一个接口；成员列表不单独做页面：手机端是首页头像栏（底部“成员”标签进第一个成员的主页），电脑端在侧栏。
+- 首页和家庭总览只拿 `/api/home` 一个接口；成员列表不单独做页面：手机端是首页头像栏，电脑端在侧栏；已归档的成员列在头像栏 / 侧栏下方的“已归档：…”一行，从那里进成员页取消归档。手机底部标签栏只有“首页”和“记一笔”。
 - 颜色、字体只用 `styles/index.css` 里的主题变量，不写裸色值；记录类型配色见 [docs/design.md](docs/design.md)。
 - 不引用 Google Fonts（国内不稳定），用系统字体回退。
+- 主屏幕图标、`manifest.webmanifest`、`apple-touch-icon` 在 `web/public/`（“家”字标志，同登录页），构建时带上路径前缀。
 - 打印页（`/print/*`）无外壳，Gotenberg、导出预览和浏览器打印共用同一份代码：从 `/api/print-data` 取数（URL 带 `token` 时透传），图片 URL 附上同一个 `token`，图表画完后设 `window.__PRINT_READY__ = true`。
 
 ### 测试
@@ -191,7 +192,7 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 | API | `internal/apitest`，httptest + 真实 PostgreSQL | 鉴权与限流、CSRF、成员、病程生命周期、记录幂等与校验、分页搜索、批量归入、首页/日历/趋势/按病种、家庭隔离、照片与头像、语音转码、导出与打印令牌 |
 | 基础包 | 单元测试 | 存储路径穿越、任务、令牌签名、缩略图与转码、时区 |
 | 前端单元 | Vitest | 表单组装与校验、默认病程规则、时间与数值格式、UUIDv7、录音格式探测、上传队列（成功、断网重试、服务端拒绝） |
-| 前端页面 | Vitest + Testing Library + MSW（与 `dev:mock` 同一套 mock） | 登录与跳回、两端外壳、记一笔保存后出现在病程里、切换状态、待整理批量归入、按病种汇总 |
+| 前端页面 | Vitest + Testing Library + MSW（与 `dev:mock` 同一套 mock） | 登录与跳回、两端外壳、已归档成员入口、记一笔保存后出现在病程里、切换状态、待整理批量归入、按病种汇总 |
 | 真机 | 手动清单 | iOS Safari、安卓 Chrome 上录音、拍照、弱网保存 |
 
 技术方案里 store 层用 testcontainers；这里改为连一个已有的 PostgreSQL（CI 用 service 容器），每个测试建独立 schema，不依赖 Docker-in-Docker。
@@ -214,16 +215,22 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 | 接口清单 | 新增 `GET /records/{id}`、`GET /members/{id}/calendar`、`POST /attachments/{id}/reprocess` | 记录详情页、成员主页日历、转码失败“重新处理”按钮 |
 | 照片 `storage_key` 为处理后文件 | 照片存缩略图的路径，原图在 `original_key` | 照片前端已压缩，处理后的产物就是缩略图 |
 | store 层 testcontainers | 已有 PostgreSQL + 独立 schema | 见上文“测试” |
+| 手机底部三个标签（首页 / 记一笔 / 成员） | 只有“首页”和“记一笔” | 首页头像栏就是成员列表，“成员”标签重复 |
+| 设计稿没有已归档成员的入口 | 头像栏 / 侧栏下方列出“已归档：…” | 归档后首页和侧栏都不显示，否则无法取消归档 |
+| 打印页页脚是页面底部的元素 | 页脚画在 `@page` 底边距里（含“第 x / y 页”），Gotenberg 用打印页自己的 `@page` 尺寸和边距 | 固定定位的页脚会多出一页空白页，还会盖住长报告的正文 |
 
 ## 前后端联调
 
-前端按 `api/openapi.yaml` 和后端实现写成，mock 后端（`web/src/mocks/handlers.ts`）照后端规则实现，但毕竟是模拟。联调时逐项核对：
+前端按 `api/openapi.yaml` 和后端实现写成，mock 后端（`web/src/mocks/handlers.ts`）照后端规则实现。已在本机真实后端（PostgreSQL + Gotenberg）上逐项核对：
 
-- [ ] `make dev` 起真实后端，用 `healthlog user create` 建的账号走一遍：登录（含不勾选“30 天内保持登录”）、添加成员和头像、记一笔（语音、照片、新建病程）、待整理批量归入、切换状态、导出 PDF
-- [ ] 上传队列：浏览器开发者工具切到离线后保存，恢复网络后自动补传；转码中的语音显示“转码中”，转码失败显示“重新处理”
-- [ ] 导出页“包含内容”四个勾选目前只作用于预览和浏览器打印（打印页的 `sections` 参数）；`ExportRequest` 还没有对应字段，下载的 PDF 总是全部内容。需要后端在导出接口加 `sections` 并带到打印页 URL
-- [ ] 打印页由 Gotenberg 打开时带 `token`，图片地址会附上同一个令牌；确认 PDF 里照片、曲线正常，`window.__PRINT_READY__` 能等到
-- [ ] mock 与后端可能不一致的地方：搜索匹配方式、`to` 参数的开闭区间、成员删除与归档后的列表、错误提示文案
+- [x] 登录（含不勾选“30 天内保持登录”时为会话 Cookie）、添加 / 编辑 / 归档 / 取消归档 / 删除成员和头像、记一笔（语音、照片、就地新建病程、再记一次）、待整理批量归入、切换状态、短期转长期、改名、删除病程、成员主页三种视图、导出 PDF
+- [x] 上传队列：离线保存后提示“还没上传”，恢复网络后自动补传；语音转成 AAC m4a；“转码中”和“重新处理”正常
+- [x] 导出页“包含内容”勾选经 `ExportRequest.sections` 带到打印页，PDF 与预览一致
+- [x] Gotenberg 打开打印页时带 `token`，图片地址附同一个令牌；PDF 里中文、照片、曲线正常，能等到 `window.__PRINT_READY__`；时间按北京时间（Gotenberg 容器设了 `TZ`）
+- [x] mock 与后端对齐：搜索字段（含科室）、记录列表 `to` 含端点、成员称呼校验文案；成员主页搜索按回车查询
+- [x] 生产构建：`BASE_PATH=/health` 下资源、深层地址刷新、Cookie Path 正常，产物里没有 mock；Docker 镜像能构建并通过健康检查
+
+联调时修掉的问题：PDF 时间是 UTC、每份 PDF 多一页、只有体温或未分类记录的一周显示“本周还没有记录”、归档后无法找回成员、浏览器放不了的语音点了没反应、浏览器取消的请求被记成服务端错误。
 
 ## 里程碑
 
@@ -238,6 +245,8 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 - [ ] **第 4 周**：~~后端：PDF 导出接口、备份脚本~~（已完成）；~~前端打印页与导出页~~（已完成，待联调）；真机回归、细节打磨
   - 验收：两种报告的 PDF 与预览一致，中文和图表正常；备份能恢复
 
+到上线为止的逐项清单（服务器部署、真机验证、正式启用）见 [上线清单](https://claude.ai/artifact/4H5RhLdHnzSyxDtMWQgozj)。
+
 ## 待定事项
 
 - [x] ~~服务器与域名~~：与 crab 共用服务器和域名，路径 `/health/`
@@ -245,8 +254,11 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 - [ ] 服务器上线：按 [deploy/SERVER_STEPS.md](deploy/SERVER_STEPS.md) 部署 healthlog、建立独立网关（crab 不用改代码、不用重新部署）
 - [x] ~~设计稿补充~~：已补登录（手机 / 电脑）、记录详情、编辑记录；手机端成员列表就是首页头像栏
 - [x] ~~电脑端“记一笔”是否用弹窗~~：电脑端不支持记录，已移除入口
-- [ ] 展示字体 ZCOOL XiaoWei 是否自托管子集
-- [ ] 导出“包含内容”勾选要不要进 PDF（需要后端 `ExportRequest` 加 `sections`），见「前后端联调」
+- [x] ~~展示字体 ZCOOL XiaoWei 是否自托管~~：不自托管，用系统宋体回退
+- [x] ~~导出“包含内容”勾选要不要进 PDF~~：要，已实现
+- [x] ~~手机底部“成员”标签~~：去掉
+- [x] ~~主屏幕图标~~：用登录页的“家”字标志
+- [x] ~~备份~~：只在服务器本机（每天 `pg_dump` + 附件镜像，保留 30 天），不加密、不异地
 
 ## 部署
 

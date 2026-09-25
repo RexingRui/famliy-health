@@ -61,7 +61,7 @@ Tailwind 主题变量在 `web/src/styles/index.css`，命名与下表一致（�
 
 - 正文：`'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif`
 - 展示（页面大标题、病程名、成员头像字）：`'ZCOOL XiaoWei', 'Songti SC', 'STSong', serif`
-- 设计稿通过 Google Fonts 加载字体；国内访问不稳定，项目内**不引用 Google Fonts**，先用系统字体回退。如需 ZCOOL XiaoWei，按用到的字做子集后放到本站静态资源中自托管。
+- 设计稿通过 Google Fonts 加载字体；国内访问不稳定，项目内**不引用 Google Fonts**，展示字体用系统宋体回退（已确定不自托管 ZCOOL XiaoWei）。主屏幕图标里的“家”字是渲染好的图片，不依赖字体。
 
 ### 尺寸与形状
 
@@ -69,7 +69,7 @@ Tailwind 主题变量在 `web/src/styles/index.css`，命名与下表一致（�
 - 圆角：卡片 18px，控件 12px，胶囊按钮 22px，时间线卡片 14px。
 - 手机页面左右边距 16px（标题区 20px）；电脑端侧栏 240px，主区内边距 32px 40px。
 - 响应式分界 1024px（Tailwind `lg`），以下为手机外壳，以上为电脑外壳。
-- 手机底部标签栏高 84px；中间“记一笔”为 64px 圆形按钮，上浮 30px。
+- 手机底部标签栏高 84px；中间“记一笔”为 64px 圆形按钮，上浮 30px。标签栏只有“首页”和“记一笔”，没有设计稿里的“成员”（首页头像栏就是成员列表）。
 
 ### 图标
 
