@@ -494,9 +494,6 @@ type DiseaseSummary struct {
 type DiseaseTag struct {
 	Id   openapi_types.UUID `json:"id"`
 	Name string             `json:"name"`
-
-	// Preset 系统预置
-	Preset bool `json:"preset"`
 }
 
 // DiseaseTagCreate defines model for DiseaseTagCreate.
@@ -680,6 +677,9 @@ type LastMedication struct {
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
 	Password string `json:"password"`
+
+	// Remember 30 天内保持登录。false 时 Cookie 随浏览器关闭失效，闲置 12 小时也会过期
+	Remember *bool  `json:"remember,omitempty"`
 	Username string `json:"username"`
 }
 
@@ -1105,16 +1105,16 @@ type ServerInterface interface {
 	// ReprocessAttachment 转码失败的语音重新处理
 	// (POST /api/attachments/{id}/reprocess)
 	ReprocessAttachment(w http.ResponseWriter, r *http.Request, id Id)
-	// Login 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
+	// Login 用户名密码登录，成功后下发 Cookie hl_sid（默认 30 天，活跃时滑动续期；remember=false 时为会话 Cookie）
 	// (POST /api/auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
 	// Logout 注销当前会话；all=true 注销该账号的全部会话
 	// (POST /api/auth/logout)
 	Logout(w http.ResponseWriter, r *http.Request, params LogoutParams)
-	// ListDiseaseTags 病种标签：系统预置 + 本家庭自定义
+	// ListDiseaseTags 本家庭的病种标签，按创建先后排序（没有系统预置，新建病程时填的病种自动加入）
 	// (GET /api/disease-tags)
 	ListDiseaseTags(w http.ResponseWriter, r *http.Request)
-	// CreateDiseaseTag 新增自定义病种；同名已存在时返回已有标签
+	// CreateDiseaseTag 新增病种；同名已存在时返回已有标签
 	// (POST /api/disease-tags)
 	CreateDiseaseTag(w http.ResponseWriter, r *http.Request)
 	// ListEpisodes 病程列表，按最近一条记录时间倒序
@@ -1236,7 +1236,7 @@ func (_ Unimplemented) ReprocessAttachment(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Login 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
+// Login 用户名密码登录，成功后下发 Cookie hl_sid（默认 30 天，活跃时滑动续期；remember=false 时为会话 Cookie）
 // (POST /api/auth/login)
 func (_ Unimplemented) Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -1248,13 +1248,13 @@ func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request, params Log
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// ListDiseaseTags 病种标签：系统预置 + 本家庭自定义
+// ListDiseaseTags 本家庭的病种标签，按创建先后排序（没有系统预置，新建病程时填的病种自动加入）
 // (GET /api/disease-tags)
 func (_ Unimplemented) ListDiseaseTags(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// CreateDiseaseTag 新增自定义病种；同名已存在时返回已有标签
+// CreateDiseaseTag 新增病种；同名已存在时返回已有标签
 // (POST /api/disease-tags)
 func (_ Unimplemented) CreateDiseaseTag(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -4415,16 +4415,16 @@ type StrictServerInterface interface {
 	// ReprocessAttachment 转码失败的语音重新处理
 	// (POST /api/attachments/{id}/reprocess)
 	ReprocessAttachment(ctx context.Context, request ReprocessAttachmentRequestObject) (ReprocessAttachmentResponseObject, error)
-	// Login 用户名密码登录，成功后下发 Cookie hl_sid（30 天，活跃时滑动续期）
+	// Login 用户名密码登录，成功后下发 Cookie hl_sid（默认 30 天，活跃时滑动续期；remember=false 时为会话 Cookie）
 	// (POST /api/auth/login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
 	// Logout 注销当前会话；all=true 注销该账号的全部会话
 	// (POST /api/auth/logout)
 	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
-	// ListDiseaseTags 病种标签：系统预置 + 本家庭自定义
+	// ListDiseaseTags 本家庭的病种标签，按创建先后排序（没有系统预置，新建病程时填的病种自动加入）
 	// (GET /api/disease-tags)
 	ListDiseaseTags(ctx context.Context, request ListDiseaseTagsRequestObject) (ListDiseaseTagsResponseObject, error)
-	// CreateDiseaseTag 新增自定义病种；同名已存在时返回已有标签
+	// CreateDiseaseTag 新增病种；同名已存在时返回已有标签
 	// (POST /api/disease-tags)
 	CreateDiseaseTag(ctx context.Context, request CreateDiseaseTagRequestObject) (CreateDiseaseTagResponseObject, error)
 	// ListEpisodes 病程列表，按最近一条记录时间倒序

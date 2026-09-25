@@ -20,10 +20,10 @@ import (
 // ---------- Disease tags ----------
 
 func (s *Service) ListDiseaseTags(ctx context.Context, p auth.Principal) ([]dbgen.DiseaseTag, error) {
-	return s.store.ListDiseaseTags(ctx, &p.FamilyID)
+	return s.store.ListDiseaseTags(ctx, p.FamilyID)
 }
 
-// EnsureDiseaseTag returns the visible tag with this name, creating a family tag if needed.
+// EnsureDiseaseTag returns the family tag with this name, creating it if needed.
 func (s *Service) EnsureDiseaseTag(ctx context.Context, p auth.Principal, name string) (tag dbgen.DiseaseTag, created bool, err error) {
 	err = s.store.WithTx(ctx, func(q *dbgen.Queries) error {
 		tag, created, err = ensureTag(ctx, q, p.FamilyID, name)
@@ -37,21 +37,21 @@ func ensureTag(ctx context.Context, q *dbgen.Queries, family uuid.UUID, name str
 	if n := utf8.RuneCountInString(name); n == 0 || n > 30 {
 		return dbgen.DiseaseTag{}, false, errs.Validation("病种名称不能为空，且不超过 30 个字", map[string]string{"diseaseName": "invalid"})
 	}
-	tag, err := q.FindDiseaseTagByName(ctx, dbgen.FindDiseaseTagByNameParams{Name: name, FamilyID: &family})
+	tag, err := q.FindDiseaseTagByName(ctx, dbgen.FindDiseaseTagByNameParams{Name: name, FamilyID: family})
 	if err == nil {
 		return tag, false, nil
 	}
 	if !store.IsNotFound(err) {
 		return tag, false, err
 	}
-	tag, err = q.InsertDiseaseTag(ctx, dbgen.InsertDiseaseTagParams{ID: newID(), FamilyID: &family, Name: name})
+	tag, err = q.InsertDiseaseTag(ctx, dbgen.InsertDiseaseTagParams{ID: newID(), FamilyID: family, Name: name})
 	return tag, err == nil, err
 }
 
 func resolveTag(ctx context.Context, q *dbgen.Queries, family uuid.UUID, id *uuid.UUID, name *string) (dbgen.DiseaseTag, error) {
 	switch {
 	case id != nil:
-		tag, err := q.GetDiseaseTag(ctx, dbgen.GetDiseaseTagParams{ID: *id, FamilyID: &family})
+		tag, err := q.GetDiseaseTag(ctx, dbgen.GetDiseaseTagParams{ID: *id, FamilyID: family})
 		if store.IsNotFound(err) {
 			return tag, errs.Validation("病种不存在", map[string]string{"diseaseTagId": "not_found"})
 		}
@@ -259,7 +259,7 @@ func (s *Service) UpdateEpisode(ctx context.Context, p auth.Principal, id uuid.U
 		if err != nil {
 			return notFound(err, "病程不存在")
 		}
-		oldTag, err := q.GetDiseaseTag(ctx, dbgen.GetDiseaseTagParams{ID: e.DiseaseTagID, FamilyID: &p.FamilyID})
+		oldTag, err := q.GetDiseaseTag(ctx, dbgen.GetDiseaseTagParams{ID: e.DiseaseTagID, FamilyID: p.FamilyID})
 		if err != nil {
 			return err
 		}

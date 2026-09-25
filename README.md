@@ -4,7 +4,7 @@
 
 家庭自用的病程记录本，不做问诊，不给医疗建议。核心价值是：就诊时病史讲得清，复诊时有据可查，报销时材料齐全。
 
-> 当前状态：**后端 MVP 接口已完成**（登录、成员、病程、记录、附件与语音转码、浏览视图、PDF 导出、备份与部署脚本），前端各路由仍是占位页。按下方「里程碑」推进。
+> 当前状态：**后端 MVP 接口已完成**（登录、成员、病程、记录、附件与语音转码、浏览视图、PDF 导出、备份与部署脚本）；**前端页面已完成**，目前对着浏览器内的 mock 后端开发（`npm run dev:mock`），还没和真实后端联调，见「前后端联调」。按下方「里程碑」推进。
 
 ## 文档
 
@@ -14,7 +14,7 @@
 |---|---|---|---|
 | 产品方案（MVP） | [docs/product.md](docs/product.md) | [链接](https://claude.ai/code/artifact/2cee63c4-4748-404b-b54c-fae6ba3f4f56) | 做什么：范围、概念、病程规则、字段、页面、流程、验收场景 |
 | 前后端技术方案（MVP） | [docs/tech-plan.md](docs/tech-plan.md) | [链接](https://claude.ai/code/artifact/6b860948-4fcd-4a17-8cd3-67fbcd291543) | 怎么做：技术栈、架构、数据模型、API、关键流程、部署、里程碑 |
-| 设计稿 | [docs/design.md](docs/design.md)（要点） | [链接](https://claude.ai/code/artifact/181d5e62-5cf3-4c2e-b088-7cdd0203ca67) | 长什么样：10 个画板、颜色、字体、尺寸 |
+| 设计稿 | [docs/design.md](docs/design.md)（要点） | [链接](https://claude.ai/artifact/3yiHHtmFVgHqKUsKhVLZjk) | 长什么样：14 个画板、颜色、字体、尺寸 |
 
 ## 产品速览
 
@@ -42,7 +42,7 @@
 
 | 层 | 选型 |
 |---|---|
-| 前端 | React 19 + TypeScript + Vite、React Router、TanStack Query、Tailwind CSS 4、dayjs；按功能再加 ECharts、react-hook-form、idb-keyval、browser-image-compression、heic2any |
+| 前端 | React 19 + TypeScript + Vite、React Router、TanStack Query、Tailwind CSS 4、dayjs、ECharts（按需加载）；开发和测试用 MSW 模拟后端 |
 | 后端 | Go（单体单二进制）、chi、pgx + sqlc、goose、slog |
 | 契约 | OpenAPI 3（`api/openapi.yaml`）→ oapi-codegen（Go strict server）+ openapi-typescript（TS 类型） |
 | 数据库 | PostgreSQL 16 |
@@ -81,11 +81,12 @@ db/
 web/
   embed.go                把 web/dist 编进 Go 二进制
   src/
-    app/                  路由、外壳（MobileShell / DesktopShell）、Provider
-    api/                  fetch 封装、QueryClient、[生成] schema.d.ts
+    app/                  路由（页面按需加载）、外壳（MobileShell / DesktopShell）、登录守卫、Provider
+    api/                  fetch 封装、接口函数（endpoints）、Query 钩子与 key（hooks）、类型别名、[生成] schema.d.ts
     features/             auth home record episode inbox member export print
-    components/           通用 UI
-    lib/                  recorder image drafts time
+    components/           通用 UI：按钮与标签、底部弹层、语音播放、头像、照片查看、日历、趋势图
+    lib/                  recorder（录音）、image（压缩）、drafts（IndexedDB 草稿与上传队列）、time、labels
+    mocks/                浏览器内的 mock 后端（MSW）：按 openapi 实现全部接口，种子数据取自设计稿
     styles/               Tailwind 主题（颜色取自设计稿）
 docker-compose.yml        生产部署（服务器上直接 docker compose up -d）
 deploy/                   Dockerfile、开发依赖 compose、部署说明 DEPLOY.md、上线操作清单 SERVER_STEPS.md
@@ -108,10 +109,19 @@ make dev                      # 后端 air 热重载（:8080），前端 Vite（
 
 打开 http://localhost:5173 。Vite 把 `/api` 和 `/healthz` 代理到后端；本地 Gotenberg 通过 `host.docker.internal:5173` 打开打印页。手机真机调试录音需要 HTTPS，可用 mkcert 生成本地证书或内网穿透。
 
+只看前端、不起后端：
+
+```bash
+cd web && npm run dev:mock    # http://localhost:5173 ，账号 demo，密码 demo
+```
+
+mock 后端跑在浏览器的 Service Worker 里（`web/src/mocks`），数据存在 localStorage，刷新不丢；地址后加 `?reset-mock` 恢复种子数据。它只在开发模式加载，不进生产构建。
+
 | 命令 | 作用 |
 |---|---|
 | `make gen` | 重新生成 sqlc、oapi-codegen、openapi-typescript 代码 |
 | `make dev` / `make dev-down` | 启动 / 停止本地开发环境 |
+| `make dev-mock` | 只起前端，用 mock 后端（账号 demo / demo） |
 | `make test` | 单元测试：`go test ./...` + Vitest |
 | `make test-integration` | API 端到端测试，连 `TEST_DATABASE_URL`（每个测试建独立 schema，跑完删除） |
 | `make lint` | `go vet` + gofmt + oxlint + `tsc` |
@@ -127,10 +137,10 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 
 | 分组 | 接口 | 要点 |
 |---|---|---|
-| 账号 | `POST /auth/login`、`POST /auth/logout`、`GET /me` | Cookie `hl_sid`（Path 为部署前缀）30 天滑动续期；同 IP 连续失败 5 次锁 15 分钟 |
+| 账号 | `POST /auth/login`、`POST /auth/logout`、`GET /me` | Cookie `hl_sid`（Path 为部署前缀）30 天滑动续期；登录时 `remember=false` 则为会话 Cookie、闲置 12 小时过期；同 IP 连续失败 5 次锁 15 分钟 |
 | 首页 | `GET /home` | 每个成员：未结束病程（最新体温、上次用药、本周日历）、最近 4 条记录、近一年病程数；待整理数量 |
 | 成员 | `/members` 增删改查、`/archive`、`/unarchive`、`/by-disease`、`/calendar` | 删除需 `confirm=true`，文件由后台任务清理 |
-| 病种 | `GET/POST /disease-tags` | 预置 + 自定义，同名返回已有 |
+| 病种 | `GET/POST /disease-tags` | 只有本家庭的病种，没有预置；新建病程时填的病种自动加入；同名返回已有 |
 | 病程 | `/episodes` 增删改查、`/calendar`、`/trend` | 状态随类型校验；短期可转长期；病种变了、名称仍是默认名时自动改名；删除后记录回到待整理 |
 | 记录 | `GET /records`、`PUT/GET/PATCH/DELETE /records/{id}`、`POST /records/assign`、`GET /medications/last` | PUT 幂等；可随记录新建病程；类型与字段不匹配返回 422；游标分页；搜索覆盖正文、语音补充文字、药名、医院 |
 | 附件 | `PUT /attachments/{id}`（multipart）、`PATCH/DELETE`、`GET /file`、`POST /reprocess` | 按文件头识别格式；照片≤9 张/条；语音异步转 m4a；文件支持 Range |
@@ -163,7 +173,12 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 - **路径前缀**：构建时由 `VITE_BASE_PATH` 决定（Docker 构建自动传入），资源地址和路由 basename 随之变化。调接口一律用 `apiFetch('/api/...')` 或 `apiUrl()`，不要手写前缀；接口返回的附件、头像 URL 已含前缀，直接用。
 - 以 1024px（Tailwind `lg`）切换两套外壳；页面数据和逻辑共用，只有布局按端区分（`useIsDesktop`）。手机端全屏页（记一笔等）在路由 `handle` 里设 `hideMobileTabBar`。
 - 服务端数据全部走 TanStack Query；保存记录后使首页、病程、待整理相关查询失效。
-- 草稿和上传队列存 IndexedDB：**先落本地、再传服务器**，失败在首页提示并重试。
+- 草稿和上传队列存 IndexedDB（`lib/drafts`）：点“保存”先写 IndexedDB，再依次 `PUT` 记录和附件；断网保留草稿，`online`、回到前台、点提示条时重试；服务端拒绝（4xx）的草稿标为失败，由用户重试或放弃。编辑记录时新增的语音、照片也走这个队列。
+- 录音（`lib/recorder` + `features/record/RecordButton`）：按住录、松开存、上滑 80px 取消；不足 1 秒丢弃，3 分钟自动停；首次按下只申请麦克风权限；键盘可按回车开始 / 结束。电脑端不提供录音和“记一笔”。
+- 表单用组件内状态（`features/record/form.ts` 负责校验和组装 `RecordCreate` / `RecordPatch`），没有引入 react-hook-form。
+- 照片在前端用 canvas 压到长边 2000px、JPEG 0.85（顺带去掉 EXIF 定位）；HEIC 依赖浏览器自身解码（iOS Safari 可以），不另引 heic2any。
+- 默认病程规则在 `form.ts` 的 `defaultEpisode`：该成员未结束的病程按最近记录排序，一个就选中，多个选第一个并展开，没有就“暂不归类”。
+- 首页和家庭总览只拿 `/api/home` 一个接口；成员列表不单独做页面：手机端是首页头像栏（底部“成员”标签进第一个成员的主页），电脑端在侧栏。
 - 颜色、字体只用 `styles/index.css` 里的主题变量，不写裸色值；记录类型配色见 [docs/design.md](docs/design.md)。
 - 不引用 Google Fonts（国内不稳定），用系统字体回退。
 - 打印页（`/print/*`）无外壳，Gotenberg、导出预览和浏览器打印共用同一份代码：从 `/api/print-data` 取数（URL 带 `token` 时透传），图片 URL 附上同一个 `token`，图表画完后设 `window.__PRINT_READY__ = true`。
@@ -175,7 +190,8 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 | service | 单元测试（`internal/service/rules_test.go`） | 状态规则与短转长、默认名称与结束日期、第几天与康复提示、类型与字段、补录判断、游标与搜索 |
 | API | `internal/apitest`，httptest + 真实 PostgreSQL | 鉴权与限流、CSRF、成员、病程生命周期、记录幂等与校验、分页搜索、批量归入、首页/日历/趋势/按病种、家庭隔离、照片与头像、语音转码、导出与打印令牌 |
 | 基础包 | 单元测试 | 存储路径穿越、任务、令牌签名、缩略图与转码、时区 |
-| 前端 | Vitest | 录音状态机、上传队列重试（待开发） |
+| 前端单元 | Vitest | 表单组装与校验、默认病程规则、时间与数值格式、UUIDv7、录音格式探测、上传队列（成功、断网重试、服务端拒绝） |
+| 前端页面 | Vitest + Testing Library + MSW（与 `dev:mock` 同一套 mock） | 登录与跳回、两端外壳、记一笔保存后出现在病程里、切换状态、待整理批量归入、按病种汇总 |
 | 真机 | 手动清单 | iOS Safari、安卓 Chrome 上录音、拍照、弱网保存 |
 
 技术方案里 store 层用 testcontainers；这里改为连一个已有的 PostgreSQL（CI 用 service 容器），每个测试建独立 schema，不依赖 Docker-in-Docker。
@@ -192,9 +208,22 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 | — | 新增 `PRINT_BASE_URL` | Gotenberg 打开打印页的地址（生产 `http://app:8080`，本地为 Vite） |
 | 自建 Gotenberg 镜像装中文字体 | 直接用官方镜像 | 官方镜像已含 `fonts-noto-cjk`，省掉服务器上的 apt |
 | 一次性打印令牌 | 5 分钟有效的无状态 HMAC 令牌，限定家庭、报告和成员 | 与方案“服务端不存状态”一致，只在有效期内可复用 |
+| 预置病种列表 | 不预置，病种全部由家庭自己在新建病程时填写 | 预置名单用处不大，确定删除；迁移 `00004` 删掉预置标签，已被病程用到的转成该家庭自己的标签 |
+| 电脑端记一笔用弹窗 | 电脑端不支持记录，没有“记一笔”入口 | 记录只在手机上做；电脑端改记录用待整理的编辑面板 |
+| 登录状态固定 30 天 | 登录页“30 天内保持登录”默认勾选；不勾选时为会话 Cookie，服务端闲置 12 小时过期 | 设计稿登录页有这个选项 |
 | 接口清单 | 新增 `GET /records/{id}`、`GET /members/{id}/calendar`、`POST /attachments/{id}/reprocess` | 记录详情页、成员主页日历、转码失败“重新处理”按钮 |
 | 照片 `storage_key` 为处理后文件 | 照片存缩略图的路径，原图在 `original_key` | 照片前端已压缩，处理后的产物就是缩略图 |
 | store 层 testcontainers | 已有 PostgreSQL + 独立 schema | 见上文“测试” |
+
+## 前后端联调
+
+前端按 `api/openapi.yaml` 和后端实现写成，mock 后端（`web/src/mocks/handlers.ts`）照后端规则实现，但毕竟是模拟。联调时逐项核对：
+
+- [ ] `make dev` 起真实后端，用 `healthlog user create` 建的账号走一遍：登录（含不勾选“30 天内保持登录”）、添加成员和头像、记一笔（语音、照片、新建病程）、待整理批量归入、切换状态、导出 PDF
+- [ ] 上传队列：浏览器开发者工具切到离线后保存，恢复网络后自动补传；转码中的语音显示“转码中”，转码失败显示“重新处理”
+- [ ] 导出页“包含内容”四个勾选目前只作用于预览和浏览器打印（打印页的 `sections` 参数）；`ExportRequest` 还没有对应字段，下载的 PDF 总是全部内容。需要后端在导出接口加 `sections` 并带到打印页 URL
+- [ ] 打印页由 Gotenberg 打开时带 `token`，图片地址会附上同一个令牌；确认 PDF 里照片、曲线正常，`window.__PRINT_READY__` 能等到
+- [ ] mock 与后端可能不一致的地方：搜索匹配方式、`to` 参数的开闭区间、成员删除与归档后的列表、错误提示文案
 
 ## 里程碑
 
@@ -202,21 +231,22 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 
 - [ ] **第 1 周**：~~工程骨架、代码生成、登录接口、部署脚本~~（已完成）、上线与 HTTPS、录音真机验证
   - 验收：手机浏览器能登录线上环境；iOS Safari 和安卓 Chrome 录音、上传、转码、回放全部跑通
-- [ ] **第 2 周**：~~后端：成员、记录、附件、首页接口~~（已完成）；前端：成员管理、记一笔、上传队列、首页
+- [ ] **第 2 周**：~~后端：成员、记录、附件、首页接口~~（已完成）；~~前端：成员管理、记一笔、上传队列、首页~~（已完成，待联调）
   - 验收：首页 3 次点击完成一条语音记录；飞行模式下保存，恢复网络后自动上传
-- [ ] **第 3 周**：~~后端：病程、待整理、总览、成员主页、搜索接口~~（已完成）；前端对应页面
+- [ ] **第 3 周**：~~后端：病程、待整理、总览、成员主页、搜索接口~~（已完成）；~~前端对应页面~~（已完成，待联调）
   - 验收：产品方案的两个典型场景（感冒、腰椎）能完整走通
-- [ ] **第 4 周**：~~后端：PDF 导出接口、备份脚本~~（已完成）；前端打印页与导出页、真机回归、细节打磨
+- [ ] **第 4 周**：~~后端：PDF 导出接口、备份脚本~~（已完成）；~~前端打印页与导出页~~（已完成，待联调）；真机回归、细节打磨
   - 验收：两种报告的 PDF 与预览一致，中文和图表正常；备份能恢复
 
 ## 待定事项
 
 - [x] ~~服务器与域名~~：与 crab 共用服务器和域名，路径 `/health/`
-- [ ] 预置病种列表：在技术方案示例的基础上补了常见病，先写入 17 个（`db/migrations/00002_preset_disease_tags.sql`），需要增删就加一个新迁移
+- [x] ~~预置病种列表~~：不预置，见“与方案的差异”
 - [ ] 服务器上线：按 [deploy/SERVER_STEPS.md](deploy/SERVER_STEPS.md) 部署 healthlog、建立独立网关（crab 不用改代码、不用重新部署）
-- [ ] 设计稿补充：登录页、记录详情与编辑页、手机端成员列表
-- [ ] 电脑端“记一笔”是否用弹窗
+- [x] ~~设计稿补充~~：已补登录（手机 / 电脑）、记录详情、编辑记录；手机端成员列表就是首页头像栏
+- [x] ~~电脑端“记一笔”是否用弹窗~~：电脑端不支持记录，已移除入口
 - [ ] 展示字体 ZCOOL XiaoWei 是否自托管子集
+- [ ] 导出“包含内容”勾选要不要进 PDF（需要后端 `ExportRequest` 加 `sections`），见「前后端联调」
 
 ## 部署
 

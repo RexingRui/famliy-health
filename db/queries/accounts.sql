@@ -35,11 +35,11 @@ DELETE FROM families WHERE id = @id;
 SELECT original_key, storage_key FROM attachments WHERE family_id = @family_id;
 
 -- name: InsertSession :exec
-INSERT INTO sessions (id, account_id, expires_at, user_agent)
-VALUES (@id, @account_id, @expires_at, @user_agent);
+INSERT INTO sessions (id, account_id, expires_at, persistent, user_agent)
+VALUES (@id, @account_id, @expires_at, @persistent, @user_agent);
 
 -- name: GetSessionPrincipal :one
-SELECT s.id, s.account_id, s.expires_at, s.last_seen_at, fm.family_id
+SELECT s.id, s.account_id, s.expires_at, s.last_seen_at, s.persistent, fm.family_id
 FROM sessions s
 JOIN family_memberships fm ON fm.account_id = s.account_id
 WHERE s.id = @id AND s.expires_at > now()

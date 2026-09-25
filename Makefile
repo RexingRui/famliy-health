@@ -5,7 +5,7 @@ include .env
 export $(shell sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' .env)
 endif
 
-.PHONY: help gen gen-sql gen-api gen-web dev dev-deps dev-down dev-api dev-web \
+.PHONY: help gen gen-sql gen-api gen-web dev dev-deps dev-down dev-api dev-web dev-mock \
 	test test-go test-web test-integration user-create lint build web-build web-stub \
 	docker-init deploy backup
 
@@ -49,6 +49,10 @@ dev-api: web-stub
 
 dev-web:
 	cd web && npm run dev
+
+# Frontend only, against the in-browser mock backend (account demo / demo).
+dev-mock:
+	cd web && npm run dev:mock
 
 user-create: web-stub
 	@test -n "$(USERNAME)" || { echo "usage: make user-create USERNAME=me"; exit 1; }

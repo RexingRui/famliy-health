@@ -127,7 +127,7 @@ func (q *Queries) GetMe(ctx context.Context, arg GetMeParams) (GetMeRow, error) 
 }
 
 const getSessionPrincipal = `-- name: GetSessionPrincipal :one
-SELECT s.id, s.account_id, s.expires_at, s.last_seen_at, fm.family_id
+SELECT s.id, s.account_id, s.expires_at, s.last_seen_at, s.persistent, fm.family_id
 FROM sessions s
 JOIN family_memberships fm ON fm.account_id = s.account_id
 WHERE s.id = $1 AND s.expires_at > now()
@@ -140,6 +140,7 @@ type GetSessionPrincipalRow struct {
 	AccountID  uuid.UUID
 	ExpiresAt  time.Time
 	LastSeenAt time.Time
+	Persistent bool
 	FamilyID   uuid.UUID
 }
 
@@ -151,6 +152,7 @@ func (q *Queries) GetSessionPrincipal(ctx context.Context, id []byte) (GetSessio
 		&i.AccountID,
 		&i.ExpiresAt,
 		&i.LastSeenAt,
+		&i.Persistent,
 		&i.FamilyID,
 	)
 	return i, err
@@ -225,15 +227,16 @@ func (q *Queries) InsertFamilyMembership(ctx context.Context, arg InsertFamilyMe
 }
 
 const insertSession = `-- name: InsertSession :exec
-INSERT INTO sessions (id, account_id, expires_at, user_agent)
-VALUES ($1, $2, $3, $4)
+INSERT INTO sessions (id, account_id, expires_at, persistent, user_agent)
+VALUES ($1, $2, $3, $4, $5)
 `
 
 type InsertSessionParams struct {
-	ID        []byte
-	AccountID uuid.UUID
-	ExpiresAt time.Time
-	UserAgent string
+	ID         []byte
+	AccountID  uuid.UUID
+	ExpiresAt  time.Time
+	Persistent bool
+	UserAgent  string
 }
 
 func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) error {
@@ -241,6 +244,7 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.ID,
 		arg.AccountID,
 		arg.ExpiresAt,
+		arg.Persistent,
 		arg.UserAgent,
 	)
 	return err

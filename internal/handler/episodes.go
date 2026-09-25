@@ -20,7 +20,7 @@ func (h *Handler) ListDiseaseTags(ctx context.Context, _ api.ListDiseaseTagsRequ
 	}
 	out := make(api.ListDiseaseTags200JSONResponse, len(tags))
 	for i, t := range tags {
-		out[i] = api.DiseaseTag{Id: t.ID, Name: t.Name, Preset: t.FamilyID == nil}
+		out[i] = api.DiseaseTag{Id: t.ID, Name: t.Name}
 	}
 	return out, nil
 }
@@ -37,7 +37,7 @@ func (h *Handler) CreateDiseaseTag(ctx context.Context, req api.CreateDiseaseTag
 	if err != nil {
 		return nil, err
 	}
-	tag := api.DiseaseTag{Id: t.ID, Name: t.Name, Preset: t.FamilyID == nil}
+	tag := api.DiseaseTag{Id: t.ID, Name: t.Name}
 	if created {
 		return api.CreateDiseaseTag201JSONResponse(tag), nil
 	}

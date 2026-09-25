@@ -1,10 +1,15 @@
-import { PagePlaceholder } from '../../components/PagePlaceholder'
+import { Navigate } from 'react-router'
+import { useMembers } from '../../api/hooks'
+import { ErrorState, Spinner } from '../../components/ui'
 
+/**
+ * No separate member list: on the phone the list is the home page's avatar row, on desktop
+ * the sidebar. The 成员 tab opens the first member's page (or 添加成员 when there is none).
+ */
 export function MemberListPage() {
-  return (
-    <PagePlaceholder
-      title="成员"
-      summary="手机端的成员列表，入口到添加、编辑、归档。电脑端跳转到第一个成员的主页。"
-    />
-  )
+  const members = useMembers()
+  if (members.isPending) return <Spinner />
+  if (members.isError) return <ErrorState error={members.error} onRetry={() => void members.refetch()} />
+  const first = members.data[0]
+  return <Navigate to={first ? `/members/${first.id}` : '/members/new'} replace />
 }

@@ -47,23 +47,27 @@ func (h *Handler) AuthMiddleware(f api.StrictHandlerFunc, operationID string) ap
 		}
 		httpctx.SetAccount(ctx, p.AccountID.String())
 		if renewed != nil {
-			h.setCookie(w, token, *renewed)
+			h.setCookie(w, token, renewed.ExpiresAt, renewed.Persistent)
 		}
 		return f(auth.WithPrincipal(ctx, p), w, r, req)
 	}
 }
 
-func (h *Handler) setCookie(w http.ResponseWriter, token string, expires time.Time) {
-	http.SetCookie(w, &http.Cookie{
+// setCookie issues the session cookie; a non-persistent one has no expiry and ends with the browser.
+func (h *Handler) setCookie(w http.ResponseWriter, token string, expires time.Time, persistent bool) {
+	c := &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    token,
 		Path:     h.cookiePath(),
-		Expires:  expires,
-		MaxAge:   int(time.Until(expires).Seconds()),
 		HttpOnly: true,
 		Secure:   h.cookieSecure,
 		SameSite: http.SameSiteLaxMode,
-	})
+	}
+	if persistent {
+		c.Expires = expires
+		c.MaxAge = int(time.Until(expires).Seconds())
+	}
+	http.SetCookie(w, c)
 }
 
 func (h *Handler) clearCookie(w http.ResponseWriter) {
@@ -93,14 +97,15 @@ func clientIP(r *http.Request) string {
 
 // cookieResponse wraps a JSON response to also set or clear the session cookie.
 type loginResponse struct {
-	h       *Handler
-	token   string
-	expires time.Time
-	body    api.Me
+	h          *Handler
+	token      string
+	expires    time.Time
+	persistent bool
+	body       api.Me
 }
 
 func (l loginResponse) VisitLoginResponse(w http.ResponseWriter) error {
-	l.h.setCookie(w, l.token, l.expires)
+	l.h.setCookie(w, l.token, l.expires, l.persistent)
 	return api.Login200JSONResponse(l.body).VisitLoginResponse(w)
 }
 
@@ -121,12 +126,13 @@ func (h *Handler) Login(ctx context.Context, req api.LoginRequestObject) (api.Lo
 	if r != nil {
 		ip, ua = clientIP(r), r.UserAgent()
 	}
-	res, err := h.svc.Login(ctx, req.Body.Username, req.Body.Password, ip, ua)
+	remember := req.Body.Remember == nil || *req.Body.Remember
+	res, err := h.svc.Login(ctx, req.Body.Username, req.Body.Password, remember, ip, ua)
 	if err != nil {
 		return nil, err
 	}
 	httpctx.SetAccount(ctx, res.Me.AccountID.String())
-	return loginResponse{h: h, token: res.Token, expires: res.ExpiresAt, body: toMe(res.Me)}, nil
+	return loginResponse{h: h, token: res.Token, expires: res.ExpiresAt, persistent: res.Persistent, body: toMe(res.Me)}, nil
 }
 
 func (h *Handler) Logout(ctx context.Context, req api.LogoutRequestObject) (api.LogoutResponseObject, error) {
