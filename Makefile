@@ -7,7 +7,7 @@ endif
 
 .PHONY: help gen gen-sql gen-api gen-web dev dev-deps dev-down dev-api dev-web dev-mock \
 	test test-go test-web test-integration user-create lint build web-build web-stub \
-	docker-init deploy backup
+	docker-init deploy backup caddy-install
 
 help:
 	@echo "make gen              regenerate sqlc, oapi-codegen and openapi-typescript output"
@@ -20,6 +20,7 @@ help:
 	@echo "sudo make docker-init create data dirs owned by the container user (server)"
 	@echo "make deploy           pull, build, replace, self-check, roll back on failure (server)"
 	@echo "make backup           pg_dump + attachment mirror (server)"
+	@echo "sudo make caddy-install  hook /health/ into crab-caddy and reload it (server)"
 
 ## Code generation — generated files are committed; CI checks they are up to date.
 gen: gen-sql gen-api gen-web
@@ -97,3 +98,20 @@ deploy:
 
 backup:
 	./scripts/backup.sh
+
+## Reverse proxy: crab-caddy owns 80/443 and imports $(CADDY_SITES)/*.caddy into crab's site block.
+# import pastes the file in verbatim: a missing } swallows crab's catch-all 404 and caddy validate
+# still passes, so braces are counted first; a failed validate removes the file again so
+# crab-caddy can still start next time.
+CADDY_SITES ?= /opt/caddy-sites
+CADDY_CONTAINER ?= crab-caddy
+
+caddy-install:
+	@sed 's/#.*//' deploy/healthlog.caddy | awk '{o+=gsub(/{/,"");c+=gsub(/}/,"")} END{if(o!=c){print "deploy/healthlog.caddy 括号不配对：{ " o " 个，} " c " 个";exit 1}}'
+	@install -D -m 644 deploy/healthlog.caddy $(CADDY_SITES)/healthlog.caddy
+	@out=$$(docker exec $(CADDY_CONTAINER) caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile 2>&1) \
+		|| { rm -f $(CADDY_SITES)/healthlog.caddy; echo "✗ Caddy 配置校验失败，已撤回 $(CADDY_SITES)/healthlog.caddy"; \
+		     echo "$$out" | grep -iE "error" ; exit 1; }
+	@docker exec $(CADDY_CONTAINER) caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 \
+		|| { echo "✗ reload 失败，查看：docker logs --tail=30 $(CADDY_CONTAINER)"; exit 1; }
+	@echo "✓ 已安装 $(CADDY_SITES)/healthlog.caddy 并热加载 $(CADDY_CONTAINER)"

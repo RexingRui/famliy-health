@@ -12,7 +12,8 @@
 #   HEALTH_TIMEOUT   seconds to wait for /healthz (default 90)
 #   SKIP_BACKUP=1    skip the pre-deploy backup (not recommended)
 #
-# Routing on 80/443 belongs to the server's gateway (/opt/gateway), not to this script.
+# Routing on 80/443 belongs to crab-caddy; this script never touches it. When deploy/healthlog.caddy
+# changes it says so, and `sudo make caddy-install` applies it.
 #
 # Migrations only move forward. A rollback restores the old code and image but not the old
 # schema; restore the pre-deploy dump in backup/db/ if a migration has to be undone.
@@ -81,6 +82,9 @@ deadline=$(( $(date +%s) + HEALTH_TIMEOUT ))
 while [ "$(date +%s)" -lt "$deadline" ]; do
     if docker compose exec -T app wget -qO- "http://127.0.0.1:8080$BASE_PATH/healthz" 2>/dev/null | grep -q '"status":"ok"'; then
         log "✓ 部署完成：${OLD_SHA:0:8} → ${NEW_SHA:0:8}"
+        if ! git diff --quiet "$OLD_SHA" "$NEW_SHA" -- deploy/healthlog.caddy; then
+            log "! deploy/healthlog.caddy 有改动，执行 sudo make caddy-install 生效"
+        fi
         docker compose ps
         exit 0
     fi
