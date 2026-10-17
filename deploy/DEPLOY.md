@@ -43,7 +43,7 @@ healthlog 自身挂在前缀下（`BASE_PATH=/health`）：crab-caddy 原样转�
 | healthlog 容器 | 端口 | 说明 |
 |---|---|---|
 | healthlog-app | 127.0.0.1:8081 | 应用 + 前端 + 后台任务（语音转码、删文件） |
-| healthlog-postgres | 不暴露 | 数据在 `/opt/healthlog/data/postgres`（绑定挂载） |
+| healthlog-postgres | 不暴露 | 数据在 `~/app/healthlog/data/postgres`（绑定挂载） |
 | healthlog-gotenberg | 不暴露 | 官方镜像，自带 `fonts-noto-cjk` |
 
 ## 从 crab 借鉴的坑
@@ -67,9 +67,9 @@ healthlog 自身挂在前缀下（`BASE_PATH=/health`）：crab-caddy 原样转�
 
 ## 日常
 
-| 操作 | 命令（在 `/opt/healthlog`） |
+| 操作 | 命令（在 `~/app/healthlog`） |
 |---|---|
-| 发布新版本 | `./scripts/deploy.sh`（或本地 `ssh <服务器> 'cd /opt/healthlog && ./scripts/deploy.sh'`） |
+| 发布新版本 | `./scripts/deploy.sh`（或本地 `ssh <服务器> 'cd ~/app/healthlog && ./scripts/deploy.sh'`） |
 | 只改了 `.env`（`BASE_PATH` 除外） | `docker compose up -d` |
 | 看日志 | `docker compose logs -f app`（JSON，不含记录正文） |
 | 改密码 | `docker compose exec app healthlog user passwd --username <用户名>`（会注销全部会话） |
@@ -90,11 +90,13 @@ docker compose start app
 ## 备份
 
 ```cron
-10 3 * * * /opt/healthlog/scripts/backup.sh >> /var/log/healthlog-backup.log 2>&1
+10 3 * * * /home/<用户>/app/healthlog/scripts/backup.sh >> /home/<用户>/app/healthlog/backup/backup.log 2>&1
 ```
 
 - 数据库：`backup/db/healthlog-*.dump`，保留 `KEEP_DAYS` 天（默认 30）。
-- 附件：`backup/storage/` 是 `data/storage/` 的镜像（附件只写一次，镜像天然增量）。
+- 附件：`backup/storage/` 是 `data/storage/` 的镜像（附件只写一次，镜像天然增量）。附件文件归容器用户 uid 10001、权限 0600，
+  登录用户读不了，所以脚本用镜像里的 rsync 复制，副本归执行脚本的用户。整个备份不需要 sudo，`deploy.sh` 发布前也会跑一次。
+- 日志：`backup/backup.log`（用户的 crontab 写不了 `/var/log`）。
 - 加密：`.env` 里填 `BACKUP_AGE_RECIPIENT`（`apt install age`，用 `age-keygen` 生成密钥，私钥别放这台机器上）。
 - 异地：`.env` 里填 `BACKUP_REMOTE`（rclone 目标，如同地域 COS 内网域名，不占公网流量），附件建议用 rclone crypt 远端。
 - 试用期第 2 周在另一台机器上用上面的 `pg_restore` 做一次完整恢复演练，确认记录和附件都能打开。
