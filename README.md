@@ -47,7 +47,7 @@
 | 契约 | OpenAPI 3（`api/openapi.yaml`）→ oapi-codegen（Go strict server）+ openapi-typescript（TS 类型） |
 | 数据库 | PostgreSQL 16 |
 | 媒体 / PDF | ffmpeg（语音转 AAC m4a）、Gotenberg（无头 Chromium，官方镜像自带中文字体） |
-| 部署 | docker compose：app + postgres + gotenberg；与 crab 共用服务器和域名，挂在 `/health/` 路径下，HTTPS 由服务器上独立的网关 Caddy 提供（见 [deploy/DEPLOY.md](deploy/DEPLOY.md)） |
+| 部署 | docker compose：app + postgres + gotenberg；与 crab 共用服务器和域名，挂在 `/health/` 路径下，HTTPS 由 crab 的 Caddy 容器提供，healthlog 放一个反代片段进去（见 [deploy/DEPLOY.md](deploy/DEPLOY.md)） |
 
 前端构建产物通过 `go:embed` 编进后端二进制，前后端同域。`/api/*` 走接口，其余路径返回前端 `index.html`。整个应用可以挂在路径前缀下（`BASE_PATH`，生产为 `/health`），此时所有路径都在前缀之下，如 `/health/api/me`。
 
@@ -201,9 +201,9 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 
 | 方案 | 实际 | 原因 |
 |---|---|---|
-| 自带 Caddy 容器、独立域名 | 与 crab 同一个域名，挂在 `/health/` 下；80/443 由服务器上独立的网关（`/opt/gateway`）按路径转发 | 两个反代抢 443 会导致 HTTPS 随机失败；网关独立于两个项目，互不依赖；同域名不用新增解析、证书和备案，见 [deploy/DEPLOY.md](deploy/DEPLOY.md) |
+| 自带 Caddy 容器、独立域名 | 与 crab 同一个域名，挂在 `/health/` 下；80/443 归 crab-caddy，healthlog 往 `/opt/caddy-sites/` 放 `deploy/healthlog.caddy` | 两个反代抢 443 会导致 HTTPS 随机失败；crab 已为同机项目留了 `import` 入口（zichan 也这样接），crab 不用改；同域名不用新增解析、证书和备案，见 [deploy/DEPLOY.md](deploy/DEPLOY.md) |
 | 国内服务器需备案 1–3 周 | 沿用 crab 已备案的域名 | 技术方案里的这项风险不再存在 |
-| 应用在根路径 | 新增 `BASE_PATH`，整个应用可挂在前缀下 | crab 已占用该域名的 `/api/*`、`/t*`、`/r*` |
+| 应用在根路径 | 新增 `BASE_PATH`，整个应用可挂在前缀下 | crab 已占用该域名的 `/api/*`、`/t*`、`/r*`、`/admin*`，zichan 占用 `/zichan/` |
 | Cookie `sid` | Cookie `hl_sid`，Path 限定为前缀 | 同域名下不和其他应用混用 |
 | `SESSION_SECRET` | 不需要 | 会话令牌是随机值，库里只存哈希，不需要签名密钥 |
 | — | 新增 `PRINT_BASE_URL` | Gotenberg 打开打印页的地址（生产 `http://app:8080`，本地为 Vite） |
@@ -251,7 +251,7 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 
 - [x] ~~服务器与域名~~：与 crab 共用服务器和域名，路径 `/health/`
 - [x] ~~预置病种列表~~：不预置，见“与方案的差异”
-- [ ] 服务器上线：按 [deploy/SERVER_STEPS.md](deploy/SERVER_STEPS.md) 部署 healthlog、建立独立网关（crab 不用改代码、不用重新部署）
+- [ ] 服务器上线：按 [deploy/SERVER_STEPS.md](deploy/SERVER_STEPS.md) 部署 healthlog、接入 crab-caddy（crab 不用改，热加载不中断）
 - [x] ~~设计稿补充~~：已补登录（手机 / 电脑）、记录详情、编辑记录；手机端成员列表就是首页头像栏
 - [x] ~~电脑端“记一笔”是否用弹窗~~：电脑端不支持记录，已移除入口
 - [x] ~~展示字体 ZCOOL XiaoWei 是否自托管~~：不自托管，用系统宋体回退
@@ -262,11 +262,11 @@ CI（`.github/workflows/ci.yml`）跑后端检查（含 PostgreSQL 服务和 ffm
 
 ## 部署
 
-与 crab 共用一台服务器和域名，访问地址是 `https://<域名>/health/`。80/443 由服务器上独立的网关 Caddy（`/opt/gateway`）按路径转发，
-healthlog 只把端口绑在 `127.0.0.1:8081`，不依赖 crab 的任何东西。
+与 crab 共用一台服务器和域名，访问地址是 `https://<域名>/health/`。80/443 和证书归 crab 的 Caddy 容器 `crab-caddy`，
+healthlog 往 `/opt/caddy-sites/` 放 `deploy/healthlog.caddy`（`sudo make caddy-install`），`healthlog-app` 加入 crab 的网络供它反代。
 
 - 上线总清单（联调、部署、真机验证、启用）：[上线清单](https://claude.ai/artifact/4H5RhLdHnzSyxDtMWQgozj)
-- 第一次上线：[deploy/SERVER_STEPS.md](deploy/SERVER_STEPS.md)（逐步操作清单，含网关配置和回滚）
+- 第一次上线：[deploy/SERVER_STEPS.md](deploy/SERVER_STEPS.md)（逐步操作清单，含接入 crab-caddy 和回滚）
 - 架构、踩坑记录、日常运维、备份：[deploy/DEPLOY.md](deploy/DEPLOY.md)
 - 日常发布：服务器上 `cd /opt/healthlog && ./scripts/deploy.sh`（备份 → 拉代码 → 构建 → 替换 → 自检，失败自动回滚）
 
