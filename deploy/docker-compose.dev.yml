@@ -15,6 +15,9 @@ services:
 
   gotenberg:
     image: gotenberg/gotenberg:8
+    environment:
+      # Print pages format times in the browser's zone; Chromium defaults to UTC.
+      TZ: Asia/Shanghai
     ports:
       - "3000:3000"
     # Lets Chromium reach the Vite dev server on the host (PRINT_BASE_URL).

@@ -3,10 +3,16 @@ package httpx
 import (
 	"errors"
 	"io/fs"
+	"mime"
 	"net/http"
 	"path"
 	"strings"
 )
+
+func init() {
+	// Not in Go's built-in table; browsers expect it for the home-screen manifest.
+	_ = mime.AddExtensionType(".webmanifest", "application/manifest+json")
+}
 
 // spaHandler serves the built frontend. Unknown paths fall back to index.html so
 // client-side routes (/episodes/:id, ...) work on reload.

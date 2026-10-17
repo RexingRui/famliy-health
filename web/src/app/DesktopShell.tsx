@@ -8,6 +8,7 @@ import { toneForStatuses } from '../lib/avatar'
 import { ExportIcon, InboxIcon, LogoutIcon, OverviewIcon } from '../components/icons'
 import { cx } from '../lib/cx'
 import { PendingUploadsBanner } from '../features/record/PendingUploadsBanner'
+import { ArchivedMembers } from '../features/member/ArchivedMembers'
 
 const navItems: { to: string; label: string; icon: ComponentType<{ size?: number }>; end?: boolean; badge?: 'inbox' }[] = [
   { to: '/', label: '总览', icon: OverviewIcon, end: true },
@@ -70,6 +71,7 @@ export function DesktopShell() {
           {home.data && home.data.members.length === 0 && (
             <p className="px-3 text-[13px] leading-relaxed text-ink-muted">还没有成员，请在手机上添加。</p>
           )}
+          <ArchivedMembers className="px-3 pt-1" />
         </nav>
         <div className="mt-auto flex items-center justify-between gap-2 px-3 text-sm text-ink-muted">
           <span className="truncate">{me.data?.account.displayName || me.data?.account.username}</span>

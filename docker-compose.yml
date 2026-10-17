@@ -78,4 +78,7 @@ services:
     container_name: healthlog-gotenberg
     restart: unless-stopped
     command: ["gotenberg", "--api-timeout=60s", "--chromium-restart-after=30"]
+    environment:
+      # Print pages format times in the browser's zone; Chromium defaults to UTC.
+      TZ: Asia/Shanghai
     logging: *logging

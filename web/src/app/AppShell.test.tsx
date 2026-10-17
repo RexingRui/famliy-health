@@ -46,10 +46,21 @@ describe('shell and auth', () => {
     expect(await screen.findByRole('heading', { name: '家里的病程' })).toBeInTheDocument()
     const nav = screen.getByRole('navigation', { name: '主导航' })
     expect(within(nav).getByRole('link', { name: '记一笔' })).toHaveAttribute('href', '/record/new')
+    expect(within(nav).getAllByRole('link')).toHaveLength(2)
     // Open episodes of every member, and the member row doubles as the member list.
     expect(await screen.findByText('第')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /长期病程.*腰椎间盘突出/ })).toBeInTheDocument()
     expect(within(screen.getByRole('navigation', { name: '成员' })).getByRole('link', { name: /小明/ })).toBeInTheDocument()
+  })
+
+  it('links archived members from the home page so they can be unarchived', async () => {
+    setViewportWidth(390)
+    const grandma = mockDb().members.find((m) => m.nickname === '奶奶')!
+    grandma.archived = true
+    renderAt('/')
+    const line = await screen.findByText('已归档：')
+    expect(within(line.parentElement!).getByRole('link', { name: '奶奶' })).toHaveAttribute('href', `/members/${grandma.id}`)
+    expect(within(screen.getByRole('navigation', { name: '成员' })).queryByRole('link', { name: /奶奶/ })).not.toBeInTheDocument()
   })
 
   it('shows the sidebar and overview on desktop, without a 记一笔 entry', async () => {

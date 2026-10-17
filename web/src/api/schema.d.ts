@@ -998,7 +998,14 @@ export interface components {
             /** Format: date */
             to?: string;
             photos: components["schemas"]["PhotoOption"];
+            /** @description 病程报告包含的部分，省略为全部；成员健康档案忽略 */
+            sections?: components["schemas"]["ReportSection"][];
         };
+        /**
+         * @description 病程报告的可选部分：体温/程度曲线、服药明细、就诊与治疗、记录时间线
+         * @enum {string}
+         */
+        ReportSection: "trend" | "meds" | "visits" | "timeline";
         PrintData: {
             type: components["schemas"]["ReportType"];
             /** Format: date-time */

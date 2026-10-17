@@ -37,6 +37,8 @@ type ReportRequest struct {
 	From   *time.Time // dates
 	To     *time.Time
 	Photos string
+	// Sections limits an episode report to these parts; nil means all of them.
+	Sections []string
 }
 
 type PrintData struct {
@@ -210,7 +212,12 @@ func (s *Service) Export(ctx context.Context, p auth.Principal, r ReportRequest)
 	if err != nil {
 		return nil, "", err
 	}
-	pageURL := fmt.Sprintf("%s/print/%s/%s?token=%s", strings.TrimRight(s.reports.PrintBaseURL, "/"), r.Type, r.ID, url.QueryEscape(token))
+	query := "token=" + url.QueryEscape(token)
+	if r.Type == "episode" && r.Sections != nil {
+		// The print page reads the same parameter as the preview; the token stays last.
+		query = "sections=" + url.QueryEscape(strings.Join(r.Sections, ",")) + "&" + query
+	}
+	pageURL := fmt.Sprintf("%s/print/%s/%s?%s", strings.TrimRight(s.reports.PrintBaseURL, "/"), r.Type, r.ID, query)
 	pdf, err := s.reports.Gotenberg.ConvertURL(ctx, pageURL)
 	if err != nil {
 		return nil, "", errs.Unavailable("生成 PDF 失败，请稍后再试", err)

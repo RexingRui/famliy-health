@@ -23,8 +23,9 @@ func newTestRouterAt(base string, checks map[string]handler.Checker) http.Handle
 		BasePath: base,
 		Server:   handler.New(handler.Options{Checks: checks}),
 		Web: fstest.MapFS{
-			"index.html":    {Data: []byte("<html>app</html>")},
-			"assets/app.js": {Data: []byte("console.log(1)")},
+			"index.html":           {Data: []byte("<html>app</html>")},
+			"assets/app.js":        {Data: []byte("console.log(1)")},
+			"manifest.webmanifest": {Data: []byte("{}")},
 		},
 		PublicBaseURL: "https://health.example.com",
 	})
@@ -133,5 +134,12 @@ func TestBasePath(t *testing.T) {
 	}
 	if rec := do(h, http.MethodGet, "/api/nope", nil); strings.Contains(rec.Body.String(), "not_found") {
 		t.Fatal("API answered outside the base path")
+	}
+}
+
+func TestServesWebManifestAsManifest(t *testing.T) {
+	rec := do(newTestRouter(nil), http.MethodGet, "/manifest.webmanifest", nil)
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/manifest+json" {
+		t.Fatalf("status %d, content type %q", rec.Code, rec.Header().Get("Content-Type"))
 	}
 }

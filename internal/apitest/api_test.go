@@ -471,6 +471,19 @@ func TestExportAndPrintToken(t *testing.T) {
 	// The logged-in preview uses query parameters instead of a token.
 	c.do("GET", "/api/print-data?type=member&id="+m.Id.String(), nil).expect(200).decode(&pd)
 	must(t, pd.Type == api.ReportTypeMember && len(pd.Episodes) == 1 && pd.Token == nil, "member report = %+v", pd)
+
+	// The sections picked on the export page reach the print page; without them it shows everything.
+	c.do("POST", "/api/exports", map[string]any{"type": "episode", "episodeId": ep.Id, "photos": "none", "sections": []string{"meds", "timeline"}}).expect(200)
+	e.mu.Lock()
+	printURL = e.printURLs[len(e.printURLs)-1]
+	e.mu.Unlock()
+	must(t, strings.Contains(printURL, "?sections=meds%2Ctimeline&token="), "print url = %s", printURL)
+	c.do("POST", "/api/exports", map[string]any{"type": "episode", "episodeId": ep.Id, "photos": "none", "sections": []string{}}).expect(200)
+	e.mu.Lock()
+	printURL = e.printURLs[len(e.printURLs)-1]
+	e.mu.Unlock()
+	must(t, strings.Contains(printURL, "?sections=&token="), "print url = %s", printURL)
+	c.do("POST", "/api/exports", map[string]any{"type": "episode", "episodeId": ep.Id, "photos": "none", "sections": []string{"costs"}}).expect(422)
 }
 
 func TestHealthz(t *testing.T) {

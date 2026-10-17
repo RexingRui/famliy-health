@@ -20,10 +20,13 @@ export function weekSummary(days: CalendarDay[]): string {
   const visits = days.reduce((s, d) => s + d.counts.visit, 0)
   const treatments = days.reduce((s, d) => s + d.counts.treatment, 0)
   const meds = days.reduce((s, d) => s + d.counts.medication, 0)
+  // Temperatures, exams, 其他 and untyped records have no phrase of their own but still count.
+  const rest = days.reduce((s, d) => s + d.counts.temperature + d.counts.exam + d.counts.other + d.counts.untyped, 0)
   const parts: string[] = []
   if (symptomDays) parts.push(`有症状 ${symptomDays} 天`)
   if (visits) parts.push(`就诊 ${visits} 次`)
   if (treatments) parts.push(`康复 ${treatments} 次`)
   if (meds) parts.push(`用药 ${meds} 次`)
+  if (rest) parts.push(parts.length ? `其他记录 ${rest} 条` : `记录 ${rest} 条`)
   return parts.length ? `本周${parts.join('，')}` : '本周还没有记录'
 }

@@ -302,6 +302,30 @@ func (e RecordType) Valid() bool {
 	}
 }
 
+// Defines values for ReportSection.
+const (
+	ReportSectionMeds     ReportSection = "meds"
+	ReportSectionTimeline ReportSection = "timeline"
+	ReportSectionTrend    ReportSection = "trend"
+	ReportSectionVisits   ReportSection = "visits"
+)
+
+// Valid indicates whether the value is a known member of the ReportSection enum.
+func (e ReportSection) Valid() bool {
+	switch e {
+	case ReportSectionMeds:
+		return true
+	case ReportSectionTimeline:
+		return true
+	case ReportSectionTrend:
+		return true
+	case ReportSectionVisits:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReportType.
 const (
 	ReportTypeEpisode ReportType = "episode"
@@ -623,8 +647,11 @@ type ExportRequest struct {
 	MemberId *openapi_types.UUID `json:"memberId,omitempty"`
 
 	// Photos none 不附带，thumbnail 附缩略图，appendix 作为附录附原图
-	Photos PhotoOption         `json:"photos"`
-	To     *openapi_types.Date `json:"to,omitempty"`
+	Photos PhotoOption `json:"photos"`
+
+	// Sections 病程报告包含的部分，省略为全部；成员健康档案忽略
+	Sections *[]ReportSection    `json:"sections,omitempty"`
+	To       *openapi_types.Date `json:"to,omitempty"`
 
 	// Type episode 病程报告，member 成员健康档案
 	Type ReportType `json:"type"`
@@ -906,6 +933,9 @@ type RecordPatch struct {
 
 // RecordType defines model for RecordType.
 type RecordType string
+
+// ReportSection 病程报告的可选部分：体温/程度曲线、服药明细、就诊与治疗、记录时间线
+type ReportSection string
 
 // ReportType episode 病程报告，member 成员健康档案
 type ReportType string
