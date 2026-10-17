@@ -4,7 +4,10 @@
 # synced off the machine. Cloud disk snapshots are not a substitute: they can catch the
 # database mid-write.
 #
-#   0 3 * * * /opt/healthlog/scripts/backup.sh >> /var/log/healthlog-backup.log 2>&1
+#   10 3 * * * $HOME/app/healthlog/scripts/backup.sh >> $HOME/app/healthlog/backup/backup.log 2>&1
+#
+# Runs as the login user, no sudo: attachments belong to the container user (uid 10001, mode 0600),
+# so the mirror is made by rsync inside the app image, handing the copies to the caller.
 #
 # Environment (all optional, can live in .env):
 #   KEEP_DAYS             days of database dumps to keep (default 30)
@@ -44,13 +47,15 @@ fi
 # Attachment files are write-once, so a mirror is effectively incremental. --delete keeps
 # deleted health data from lingering in backups; older dumps may then reference missing files.
 log "mirror attachments → backup/storage/"
-rsync -a --delete data/storage/ backup/storage/
+docker run --rm --user 0 --network none --entrypoint rsync \
+    -v "$PWD/data/storage:/src:ro" -v "$PWD/backup/storage:/dst" \
+    healthlog:latest -a --delete --chown="$(id -u):$(id -g)" /src/ /dst/
 
 find backup/db -name 'healthlog-*.dump*' -mtime +"$KEEP_DAYS" -delete
 
 if [ -n "$REMOTE" ]; then
     command -v rclone >/dev/null || die "BACKUP_REMOTE 已设置但没有安装 rclone"
     log "sync → $REMOTE"
-    rclone sync backup/ "$REMOTE" --exclude '*.part'
+    rclone sync backup/ "$REMOTE" --exclude '*.part' --exclude backup.log
 fi
 log "✓ backup done"

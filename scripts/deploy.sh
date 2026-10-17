@@ -4,8 +4,8 @@
 # checks → backup → fast-forward pull → build → replace → self-check,
 # rolling back code and image when the self-check fails.
 #
-#   cd /opt/healthlog && ./scripts/deploy.sh
-#   ssh <server> 'cd /opt/healthlog && ./scripts/deploy.sh'
+#   cd ~/app/healthlog && ./scripts/deploy.sh
+#   ssh <server> 'cd ~/app/healthlog && ./scripts/deploy.sh'
 #
 # Environment:
 #   BRANCH           branch to deploy (default main)

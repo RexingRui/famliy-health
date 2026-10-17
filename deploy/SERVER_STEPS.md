@@ -56,15 +56,18 @@ free -h && df -h /
 ### 2.1 拉代码
 
 ```bash
-sudo mkdir -p /opt/healthlog && sudo chown "$USER" /opt/healthlog
-git clone https://github.com/RexingRui/famliy-health.git /opt/healthlog
-cd /opt/healthlog && git log --oneline -1
+mkdir -p ~/app
+git clone https://github.com/RexingRui/famliy-health.git ~/app/healthlog
+cd ~/app/healthlog && git log --oneline -1
 ```
+
+和 crab、zichan 一样放在 `~/app/` 下，目录名用 `healthlog`。目录名不影响容器和网络的名字（compose 里写死了 `name: healthlog`），
+但同一个项目别在两个目录各克隆一份去 `up`，两份会抢同一组容器。
 
 ### 2.2 写配置
 
 ```bash
-cd /opt/healthlog
+cd ~/app/healthlog
 cp .env.example .env && chmod 600 .env
 sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 24)|" .env
 sed -i "s|^PRINT_TOKEN_SECRET=.*|PRINT_TOKEN_SECRET=$(openssl rand -hex 32)|" .env
@@ -113,7 +116,7 @@ docker compose exec app healthlog user create --username <你的用户名>
 docker exec crab-caddy wget -qO- http://healthlog-app:8080/health/healthz
 #   预期：{"checks":{"database":"ok","gotenberg":"ok"},"status":"ok"}
 
-cd /opt/healthlog
+cd ~/app/healthlog
 sudo make caddy-install
 #   复制 deploy/healthlog.caddy 到 /opt/caddy-sites/，检查括号、整体校验、热加载 crab-caddy
 #   预期：✓ 已安装 /opt/caddy-sites/healthlog.caddy 并热加载 crab-caddy
@@ -160,23 +163,26 @@ docker exec crab-caddy caddy reload --config /etc/caddy/Caddyfile --adapter cadd
 | 现象 | 排查 |
 |---|---|
 | `make caddy-install` 报校验失败 | 看它打印的 Caddy 报错。文件已自动撤回，crab-caddy 没受影响 |
-| `/health/` 502 | healthlog 没起来：`cd /opt/healthlog && docker compose ps && docker compose logs --tail=50 app`；或 crab-caddy 找不到它：`docker exec crab-caddy wget -qO- http://healthlog-app:8080/health/healthz` |
+| `/health/` 502 | healthlog 没起来：`cd ~/app/healthlog && docker compose ps && docker compose logs --tail=50 app`；或 crab-caddy 找不到它：`docker exec crab-caddy wget -qO- http://healthlog-app:8080/health/healthz` |
 | `/health/` 404 | 片段没引入：`ls /opt/caddy-sites/`，有文件就再 `caddy reload` 一次 |
-| crab-caddy 重建后 `/health/` 502 | 正常不会：healthlog-app 一直连在 crab 的网络里。真遇到就 `cd /opt/healthlog && docker compose up -d` |
+| crab-caddy 重建后 `/health/` 502 | 正常不会：healthlog-app 一直连在 crab 的网络里。真遇到就 `cd ~/app/healthlog && docker compose up -d` |
 | 证书、HTTPS 问题 | 归 crab-caddy 管：`docker logs crab-caddy`，排查思路见 crab 的 `scripts/tls-check.sh` |
 
 ## 6. 收尾
 
 ```bash
-# healthlog 每天凌晨 3:10 备份（和 crab 的 3 点备份错开 10 分钟）
-( crontab -l 2>/dev/null; echo "10 3 * * * /opt/healthlog/scripts/backup.sh >> /var/log/healthlog-backup.log 2>&1" ) | crontab -
-/opt/healthlog/scripts/backup.sh && ls -lh /opt/healthlog/backup/db/
+# healthlog 每天凌晨 3:10 备份（和 crab 的 3 点备份错开 10 分钟）。用你自己的 crontab，不用 sudo：
+# 附件归容器用户所有，备份脚本在镜像里用 rsync 复制，副本归你；日志写在 backup/backup.log。
+H=~/app/healthlog
+( crontab -l 2>/dev/null; echo "10 3 * * * $H/scripts/backup.sh >> $H/backup/backup.log 2>&1" ) | crontab -
+crontab -l | grep healthlog                   # 路径已展开成绝对路径
+$H/scripts/backup.sh && ls -lh $H/backup/db/ && ls -ln $H/backup/storage | head -3
 docker stats --no-stream                      # 看一眼内存
 ```
 
 以后要记住的：
 
-- healthlog 日常发布：`cd /opt/healthlog && ./scripts/deploy.sh`。它不碰 crab-caddy；
+- healthlog 日常发布：`cd ~/app/healthlog && ./scripts/deploy.sh`。它不碰 crab-caddy；
   `deploy/healthlog.caddy` 有改动时它会提示，再执行一次 `sudo make caddy-install`。
 - healthlog 依赖 crab 的网络：服务器重启后 Docker 会按 `restart: unless-stopped` 把容器都拉起来，不用管；
   手动操作时先起 crab，再起 healthlog。

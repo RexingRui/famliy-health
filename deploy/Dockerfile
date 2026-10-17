@@ -31,7 +31,7 @@ RUN go build -trimpath -ldflags="-s -w" -o /out/healthlog ./cmd/healthlog
 FROM alpine:3.22
 ARG ALPINE_MIRROR=https://mirrors.tencent.com
 RUN if [ -n "$ALPINE_MIRROR" ]; then sed -i "s#https\?://dl-cdn.alpinelinux.org#${ALPINE_MIRROR}#g" /etc/apk/repositories; fi \
-    && apk add --no-cache ffmpeg ca-certificates tzdata \
+    && apk add --no-cache ffmpeg ca-certificates tzdata rsync \
     && addgroup -g 10001 app && adduser -D -H -u 10001 -G app app \
     && mkdir -p /data/storage && chown app:app /data/storage
 ENV TZ=Asia/Shanghai \

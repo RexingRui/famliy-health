@@ -268,7 +268,7 @@ healthlog 往 `/opt/caddy-sites/` 放 `deploy/healthlog.caddy`（`sudo make cadd
 - 上线总清单（联调、部署、真机验证、启用）：[上线清单](https://claude.ai/artifact/4H5RhLdHnzSyxDtMWQgozj)
 - 第一次上线：[deploy/SERVER_STEPS.md](deploy/SERVER_STEPS.md)（逐步操作清单，含接入 crab-caddy 和回滚）
 - 架构、踩坑记录、日常运维、备份：[deploy/DEPLOY.md](deploy/DEPLOY.md)
-- 日常发布：服务器上 `cd /opt/healthlog && ./scripts/deploy.sh`（备份 → 拉代码 → 构建 → 替换 → 自检，失败自动回滚）
+- 日常发布：服务器上 `cd ~/app/healthlog && ./scripts/deploy.sh`（备份 → 拉代码 → 构建 → 替换 → 自检，失败自动回滚）
 
 ## License
 
